@@ -3,6 +3,7 @@ name = "esp32-blog-post"
 version = "0.1.0"
 authors = ["Ruediger Klaehn <rklaehn@protonmail.com>"]
 edition = "2021"
+license = "MIT OR Apache-2.0"
 resolver = "2"
 rust-version = "1.77"
 
