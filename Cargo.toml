@@ -12,6 +12,7 @@ harness = false # do not use the built-in cargo test harness -> resolve rust-ana
 
 [profile.release]
 opt-level = "s"
+lto = true
 
 [profile.dev]
 debug = true    # Symbols are nice, and they don't increase the size on Flash
@@ -26,6 +27,7 @@ experimental = ["esp-idf-svc/experimental"]
 log = "0.4"
 esp-idf-svc = "0.51"
 iroh = { git = "https://github.com/n0-computer/iroh", branch = "espidf-support", version = "0.96.1" }
+tokio = { version = "1", default-features = false, features = ["rt"] }
 
 # --- Optional Embassy Integration ---
 # esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
