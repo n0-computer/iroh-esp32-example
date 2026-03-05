@@ -1,5 +1,7 @@
 use log::info;
 
+mod quic_crypto_provider;
+
 // ESP-IDF doesn't provide gethostname, but resolv_conf (via hickory-resolver) references it.
 #[no_mangle]
 unsafe extern "C" fn gethostname(name: *mut core::ffi::c_char, len: usize) -> core::ffi::c_int {
@@ -23,6 +25,11 @@ fn main() {
         ..Default::default()
     };
     unsafe { esp_idf_svc::sys::esp_vfs_eventfd_register(&eventfd_config) };
+
+    // Install pure-Rust crypto provider with minimal QUIC support
+    quic_crypto_provider::provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
