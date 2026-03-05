@@ -18,6 +18,8 @@ codegen-units = 1
 [profile.dev]
 debug = true    # Symbols are nice, and they don't increase the size on Flash
 opt-level = "z"
+lto = true
+codegen-units = 1
 
 [features]
 default = []
@@ -27,11 +29,12 @@ experimental = ["esp-idf-svc/experimental"]
 [dependencies]
 log = "0.4"
 esp-idf-svc = "0.51"
-iroh = { git = "https://github.com/n0-computer/iroh", branch = "espidf-support", version = "0.96.1" }
+iroh = { git = "https://github.com/n0-computer/iroh", branch = "espidf-support", version = "0.96.1", default-features = false, features = ["discovery-pkarr"] }
+iroh-relay = { git = "https://github.com/n0-computer/iroh", branch = "espidf-support", version = "0.96.1", default-features = false }
 iroh-tickets = { git = "https://github.com/n0-computer/iroh-tickets" }
-tokio = { version = "1", default-features = false, features = ["rt"] }
-rustls = { version = "0.23", default-features = false, features = ["std"] }
+tokio = { version = "1", features = ["rt"] }
 rustls-rustcrypto = { git = "https://github.com/n0-computer/rustls-rustcrypto", branch = "feature-flag-algorithms-v0.0.2", default-features = false, features = ["std", "p256"] }
+rustls = { version = "0.23", default-features = false }
 aes = "0.8"
 aes-gcm = "0.10"
 

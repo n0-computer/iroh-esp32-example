@@ -7,13 +7,14 @@ use esp_idf_svc::wifi::{BlockingWifi, ClientConfiguration, Configuration, EspWif
 use iroh::endpoint::Connection;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::SecretKey;
+use iroh_relay::tls::CaRootsConfig;
 use iroh_tickets::endpoint::EndpointTicket;
 use log::{info, warn};
 
 mod quic_crypto_provider;
 
 /// The ALPN for the echo protocol
-const ECHO_ALPN: &[u8] = b"esp32-blog/echo/0";
+const ECHO_ALPN: &[u8] = b"echo/0";
 
 /// Optional: bake in a fixed secret key so the node ID is stable across reboots.
 /// Set via: IROH_SECRET=<64 hex chars or base32> cargo build
@@ -170,7 +171,8 @@ fn main() {
         .expect("Failed to create tokio runtime");
 
     rt.block_on(async {
-        let mut builder = iroh::Endpoint::builder();
+        let mut builder = iroh::Endpoint::builder()
+            .ca_roots_config(CaRootsConfig::insecure_skip_verify());
 
         if let Some(key) = parse_secret_key() {
             builder = builder.secret_key(key);
