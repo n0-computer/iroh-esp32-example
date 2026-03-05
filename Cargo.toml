@@ -28,6 +28,7 @@ experimental = ["esp-idf-svc/experimental"]
 log = "0.4"
 esp-idf-svc = "0.51"
 iroh = { git = "https://github.com/n0-computer/iroh", branch = "espidf-support", version = "0.96.1" }
+iroh-tickets = { git = "https://github.com/n0-computer/iroh-tickets" }
 tokio = { version = "1", default-features = false, features = ["rt"] }
 rustls = { version = "0.23", default-features = false, features = ["std"] }
 rustls-rustcrypto = { git = "https://github.com/n0-computer/rustls-rustcrypto", branch = "feature-flag-algorithms-v0.0.2", default-features = false, features = ["std", "p256"] }
@@ -53,3 +54,7 @@ aes-gcm = "0.10"
 
 [build-dependencies]
 embuild = "0.33"
+
+[patch.crates-io]
+iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "espidf-support" }
+iroh-relay = { git = "https://github.com/n0-computer/iroh", branch = "espidf-support" }

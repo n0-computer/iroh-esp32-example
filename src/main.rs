@@ -4,14 +4,30 @@ use esp_idf_svc::eventloop::EspSystemEventLoop;
 use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::nvs::EspDefaultNvsPartition;
 use esp_idf_svc::wifi::{BlockingWifi, ClientConfiguration, Configuration, EspWifi};
+use iroh::endpoint::Connection;
+use iroh::protocol::{AcceptError, ProtocolHandler, Router};
+use iroh::SecretKey;
+use iroh_tickets::endpoint::EndpointTicket;
 use log::info;
 
 mod quic_crypto_provider;
+
+/// The ALPN for the echo protocol
+const ECHO_ALPN: &[u8] = b"esp32-blog/echo/0";
+
+/// Optional: bake in a fixed secret key so the node ID is stable across reboots.
+/// Set via: IROH_SECRET=<64 hex chars or base32> cargo build
+const IROH_SECRET: Option<&str> = option_env!("IROH_SECRET");
 
 const WIFI_CONFIG: &str = match option_env!("WIFI_CONFIG") {
     Some(value) => value,
     None => panic!("WIFI_CONFIG is not set. Build with WIFI_CONFIG='SSID:PASSWORD' cargo build"),
 };
+
+fn parse_secret_key() -> Option<SecretKey> {
+    let s = IROH_SECRET?;
+    Some(s.parse().expect("IROH_SECRET must be valid hex (64 chars) or base32"))
+}
 
 // ESP-IDF doesn't provide gethostname, but resolv_conf (via hickory-resolver) references it.
 #[no_mangle]
@@ -87,6 +103,31 @@ fn sync_time_sntp() -> esp_idf_svc::sntp::EspSntp<'static> {
     sntp
 }
 
+/// Echo protocol handler
+#[derive(Debug, Clone)]
+struct Echo;
+
+impl ProtocolHandler for Echo {
+    async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
+        let endpoint_id = connection.remote_id();
+        log::info!("Accepted connection from {endpoint_id}");
+        
+        let (mut send, mut recv) = connection.accept_bi().await?;
+        log::info!("Got bidi stream");
+        
+        // Echo bytes back
+        let bytes_sent = tokio::io::copy(&mut recv, &mut send).await?;
+        log::info!("Copied over {bytes_sent} byte(s)");
+        
+        send.finish()?;
+        
+        connection.closed().await;
+        log::info!("Connection closed");
+        
+        Ok(())
+    }
+}
+
 fn main() {
     // It is necessary to call this function once. Otherwise, some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
@@ -119,10 +160,40 @@ fn main() {
         .expect("Failed to create tokio runtime");
 
     rt.block_on(async {
-        let endpoint = iroh::Endpoint::builder()
-            .bind()
-            .await
-            .expect("unable to bind endpoint");
-        info!("Hello, world! (wifi ip: {wifi_ip})");
+        let mut builder = iroh::Endpoint::builder();
+        
+        if let Some(key) = parse_secret_key() {
+            builder = builder.secret_key(key);
+        }
+        
+        let endpoint = builder.bind().await.expect("unable to bind endpoint");
+        
+        let endpoint_id = endpoint.addr().id;
+        let port = endpoint.bound_sockets().first().map(|s| s.port()).expect("no bound socket");
+        
+        // Short ticket: just the endpoint ID (no addresses)
+        let short_ticket = EndpointTicket::new(iroh::EndpointAddr::new(endpoint_id));
+        
+        // Long ticket: includes WiFi IP + bound port
+        let mut addr_with_ip = endpoint.addr();
+        addr_with_ip.addrs.insert(iroh::TransportAddr::Ip(std::net::SocketAddr::new(wifi_ip.into(), port)));
+        let long_ticket = EndpointTicket::new(addr_with_ip);
+        
+        let _router = Router::builder(endpoint)
+            .accept(ECHO_ALPN, Echo)
+            .spawn();
+        
+        info!("Iroh endpoint bound");
+        info!("  Listening on: {wifi_ip}:{port}");
+        info!("  Endpoint ID: {endpoint_id}");
+        info!("  Short ticket: {short_ticket}");
+        info!("  Long ticket:  {long_ticket}");
+        
+        info!("Router started, accepting connections");
+        
+        // Keep the router running indefinitely
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+        }
     });
 }
