@@ -9,7 +9,7 @@ use aes::cipher::{BlockEncrypt, KeyInit as AesKeyInit};
 use aes_gcm::aead::AeadInPlace as _;
 use rustls::crypto::cipher::{AeadKey, Iv};
 use rustls::crypto::{CipherSuiteCommon, CryptoProvider};
-use rustls::{CipherSuite, SupportedCipherSuite, Tls13CipherSuite, quic};
+use rustls::{quic, CipherSuite, SupportedCipherSuite, Tls13CipherSuite};
 
 /// Build a CryptoProvider based on rustls-rustcrypto with QUIC support.
 ///
@@ -138,8 +138,7 @@ struct Aes128GcmPacketKey {
 impl Aes128GcmPacketKey {
     fn new(key: AeadKey, iv: Iv) -> Self {
         use aes_gcm::KeyInit;
-        let cipher =
-            aes_gcm::Aes128Gcm::new_from_slice(key.as_ref()).expect("key should be valid");
+        let cipher = aes_gcm::Aes128Gcm::new_from_slice(key.as_ref()).expect("key should be valid");
         Self { iv, key: cipher }
     }
 }

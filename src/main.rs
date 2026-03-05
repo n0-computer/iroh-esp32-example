@@ -8,7 +8,7 @@ use iroh::endpoint::Connection;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::SecretKey;
 use iroh_tickets::endpoint::EndpointTicket;
-use log::info;
+use log::{info, warn};
 
 mod quic_crypto_provider;
 
@@ -26,14 +26,19 @@ const WIFI_CONFIG: &str = match option_env!("WIFI_CONFIG") {
 
 fn parse_secret_key() -> Option<SecretKey> {
     let s = IROH_SECRET?;
-    Some(s.parse().expect("IROH_SECRET must be valid hex (64 chars) or base32"))
+    Some(
+        s.parse()
+            .expect("IROH_SECRET must be valid hex (64 chars) or base32"),
+    )
 }
 
 // ESP-IDF doesn't provide gethostname, but resolv_conf (via hickory-resolver) references it.
 #[no_mangle]
 unsafe extern "C" fn gethostname(name: *mut core::ffi::c_char, len: usize) -> core::ffi::c_int {
     if len > 0 && !name.is_null() {
-        unsafe { *name = 0; }
+        unsafe {
+            *name = 0;
+        }
     }
     0
 }
@@ -81,24 +86,29 @@ fn connect_wifi() -> (BlockingWifi<EspWifi<'static>>, std::net::Ipv4Addr) {
     let ip = ip_info.ip;
     (
         wifi,
-        std::net::Ipv4Addr::new(ip.octets()[0], ip.octets()[1], ip.octets()[2], ip.octets()[3]),
+        std::net::Ipv4Addr::new(
+            ip.octets()[0],
+            ip.octets()[1],
+            ip.octets()[2],
+            ip.octets()[3],
+        ),
     )
 }
 
 fn sync_time_sntp() -> esp_idf_svc::sntp::EspSntp<'static> {
-    log::info!("Starting SNTP time sync...");
+    info!("Starting SNTP time sync...");
     let sntp = esp_idf_svc::sntp::EspSntp::new_default().expect("Failed to start SNTP");
     let mut retries = 0;
     while sntp.get_sync_status() != esp_idf_svc::sntp::SyncStatus::Completed {
         retries += 1;
         if retries > 30 {
-            log::warn!("SNTP sync timed out after 30s, continuing anyway");
+            warn!("SNTP sync timed out after 30s, continuing anyway");
             break;
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
     if sntp.get_sync_status() == esp_idf_svc::sntp::SyncStatus::Completed {
-        log::info!("SNTP synced");
+        info!("SNTP synced");
     }
     sntp
 }
@@ -110,20 +120,20 @@ struct Echo;
 impl ProtocolHandler for Echo {
     async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
         let endpoint_id = connection.remote_id();
-        log::info!("Accepted connection from {endpoint_id}");
-        
+        info!("Accepted connection from {endpoint_id}");
+
         let (mut send, mut recv) = connection.accept_bi().await?;
-        log::info!("Got bidi stream");
-        
+        info!("Got bidi stream");
+
         // Echo bytes back
         let bytes_sent = tokio::io::copy(&mut recv, &mut send).await?;
-        log::info!("Copied over {bytes_sent} byte(s)");
-        
+        info!("Copied over {bytes_sent} byte(s)");
+
         send.finish()?;
-        
+
         connection.closed().await;
-        log::info!("Connection closed");
-        
+        info!("Connection closed");
+
         Ok(())
     }
 }
@@ -161,36 +171,43 @@ fn main() {
 
     rt.block_on(async {
         let mut builder = iroh::Endpoint::builder();
-        
+
         if let Some(key) = parse_secret_key() {
             builder = builder.secret_key(key);
         }
-        
+
         let endpoint = builder.bind().await.expect("unable to bind endpoint");
-        
+
         let endpoint_id = endpoint.addr().id;
-        let port = endpoint.bound_sockets().first().map(|s| s.port()).expect("no bound socket");
-        
+        let port = endpoint
+            .bound_sockets()
+            .first()
+            .map(|s| s.port())
+            .expect("no bound socket");
+
         // Short ticket: just the endpoint ID (no addresses)
         let short_ticket = EndpointTicket::new(iroh::EndpointAddr::new(endpoint_id));
-        
+
         // Long ticket: includes WiFi IP + bound port
         let mut addr_with_ip = endpoint.addr();
-        addr_with_ip.addrs.insert(iroh::TransportAddr::Ip(std::net::SocketAddr::new(wifi_ip.into(), port)));
+        addr_with_ip
+            .addrs
+            .insert(iroh::TransportAddr::Ip(std::net::SocketAddr::new(
+                wifi_ip.into(),
+                port,
+            )));
         let long_ticket = EndpointTicket::new(addr_with_ip);
-        
-        let _router = Router::builder(endpoint)
-            .accept(ECHO_ALPN, Echo)
-            .spawn();
-        
+
+        let _router = Router::builder(endpoint).accept(ECHO_ALPN, Echo).spawn();
+
         info!("Iroh endpoint bound");
         info!("  Listening on: {wifi_ip}:{port}");
         info!("  Endpoint ID: {endpoint_id}");
         info!("  Short ticket: {short_ticket}");
         info!("  Long ticket:  {long_ticket}");
-        
+
         info!("Router started, accepting connections");
-        
+
         // Keep the router running indefinitely
         loop {
             tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
