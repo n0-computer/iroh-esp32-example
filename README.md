@@ -3,7 +3,7 @@
 This repository now contains two completely separate Rust projects (no Cargo workspace):
 
 - `server/` — ESP32 endpoint project (esp-idf + iroh espidf-support branch)
-- `client/` — Vanilla desktop test client (published crates.io iroh)
+- `client/` — Desktop test client (published crates.io iroh)
 
 Each directory has its own `Cargo.toml` and lockfile.
 
@@ -11,9 +11,11 @@ Each directory has its own `Cargo.toml` and lockfile.
 
 ### Server (ESP32)
 
+An ESP32 device must be connected (e.g. over USB serial) when running the server.
+
 ```bash
 cd server
-WIFI_CONFIG='SSID:PASSWORD' cargo build
+WIFI_CONFIG='SSID:PASSWORD' cargo run --release
 ```
 
 ### Client (desktop)

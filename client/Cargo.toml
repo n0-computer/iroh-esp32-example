@@ -3,7 +3,7 @@ name = "esp32-echo-client"
 version = "0.1.0"
 edition = "2021"
 
-# Vanilla iroh from crates.io — proves the ESP32 server works with stock iroh
+# iroh from crates.io — proves the ESP32 server works with stock iroh
 
 [dependencies]
 iroh = "0.96.1"

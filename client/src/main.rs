@@ -1,4 +1,4 @@
-//! Vanilla iroh echo client — 100% released crates, zero patches.
+//! iroh echo client — 100% released crates, zero patches.
 //!
 //! This client uses iroh from crates.io (with ring crypto provider).
 //! The ESP32 server uses rustls-rustcrypto. Both speak standard QUIC.
@@ -33,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     println!("Connected!");
 
     let (mut send, mut recv) = conn.open_bi().await?;
-    let msg = b"Hello from vanilla iroh (crates.io)!";
+    let msg = b"Hello from iroh (crates.io)!";
     send.write_all(msg).await?;
     send.finish()?;
     println!("Sent: {}", String::from_utf8_lossy(msg));
@@ -49,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
     println!("Received: {}", String::from_utf8_lossy(&buf));
 
     assert_eq!(buf, msg, "echo mismatch!");
-    println!("Echo OK — vanilla crates.io iroh <-> ESP32!");
+    println!("Echo OK — crates.io iroh <-> ESP32!");
 
     conn.close(0u32.into(), b"done");
     endpoint.close().await;
