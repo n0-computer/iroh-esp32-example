@@ -1,4 +1,10 @@
-/.vscode
-/.embuild
-/target
-/Cargo.lock
+# macOS
+.DS_Store
+
+# Rust build outputs
+/target/
+/server/target/
+/client/target/
+
+# IDE / tool caches
+**/.DS_Store
