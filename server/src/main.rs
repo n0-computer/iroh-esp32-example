@@ -7,10 +7,11 @@ use esp_idf_svc::wifi::{BlockingWifi, ClientConfiguration, Configuration, EspWif
 use iroh::endpoint::Connection;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::SecretKey;
-use iroh_relay::tls::CaRootsConfig;
+use iroh::tls::CaRootsConfig;
 use iroh_tickets::endpoint::EndpointTicket;
 use log::{info, warn};
 
+mod std_dns_resolver;
 mod quic_crypto_provider;
 
 /// The ALPN for the echo protocol
@@ -155,7 +156,8 @@ fn main() {
     unsafe { esp_idf_svc::sys::esp_vfs_eventfd_register(&eventfd_config) };
 
     // Install pure-Rust crypto provider with minimal QUIC support
-    quic_crypto_provider::provider()
+    let provider = quic_crypto_provider::provider();
+    provider
         .install_default()
         .expect("Failed to install rustls crypto provider");
 
@@ -167,12 +169,23 @@ fn main() {
 
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
+        .max_blocking_threads(1)
+        .thread_stack_size(4096)
         .build()
         .expect("Failed to create tokio runtime");
 
     rt.block_on(async {
+        let dns_resolver = iroh::dns::DnsResolver::custom(std_dns_resolver::StdDnsResolver);
+
         let mut builder = iroh::Endpoint::builder()
-            .ca_roots_config(CaRootsConfig::insecure_skip_verify());
+            .ca_roots_config(CaRootsConfig::insecure_skip_verify())
+            .dns_resolver(dns_resolver)
+            .net_report_config({
+                let mut c = iroh::NetReportConfig::default();
+                c.https_probes = false;
+                c.captive_portal_check = false;
+                c
+            });
 
         if let Some(key) = parse_secret_key() {
             builder = builder.secret_key(key);

@@ -50,6 +50,7 @@ pub fn provider() -> CryptoProvider {
 // --- AES-128-GCM with QUIC support ---
 
 static QUIC_AES_128_GCM: &Tls13CipherSuite = {
+    #[allow(unreachable_patterns)]
     match &rustls_rustcrypto::TLS13_AES_128_GCM_SHA256 {
         SupportedCipherSuite::Tls13(inner) => &Tls13CipherSuite {
             common: CipherSuiteCommon {

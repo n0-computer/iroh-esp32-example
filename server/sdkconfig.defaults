@@ -1,5 +1,8 @@
 # Tokio current_thread runtime runs everything on this single stack.
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=98304
+# 112KB is needed because hickory-resolver's async DNS parsing creates deeply
+# nested futures that consume ~111KB of stack with opt-level "z" (no inlining).
+# This stack lives in internal SRAM, not PSRAM, so it can't grow much further.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=114688
 
 # Use this to set FreeRTOS kernel tick frequency to 1000 Hz (100 Hz by default).
 # This allows to use 1 ms granularity for thread sleeps (10 ms by default).
@@ -31,3 +34,6 @@ CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=32
 CONFIG_LWIP_TCPIP_TASK_STACK_SIZE=4096
 CONFIG_LWIP_MAX_UDP_PCBS=16
 CONFIG_LWIP_MAX_SOCKETS=16
+
+# Detect stack overflow via hardware watchpoint (uses 1 of 2 debug watchpoints)
+CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK=y
