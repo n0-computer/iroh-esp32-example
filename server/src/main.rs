@@ -155,11 +155,8 @@ fn main() {
     };
     unsafe { esp_idf_svc::sys::esp_vfs_eventfd_register(&eventfd_config) };
 
-    // Install pure-Rust crypto provider with minimal QUIC support
-    let provider = quic_crypto_provider::provider();
-    provider
-        .install_default()
-        .expect("Failed to install rustls crypto provider");
+    // Pure-Rust crypto provider with minimal QUIC support
+    let provider = std::sync::Arc::new(quic_crypto_provider::provider());
 
     let (_wifi, wifi_ip) = connect_wifi();
 
@@ -177,9 +174,13 @@ fn main() {
     rt.block_on(async {
         let dns_resolver = iroh::dns::DnsResolver::custom(std_dns_resolver::StdDnsResolver);
 
-        let mut builder = iroh::Endpoint::builder()
+        let mut builder = iroh::Endpoint::builder(iroh::endpoint::presets::Empty)
+            .crypto_provider(provider)
             .ca_roots_config(CaRootsConfig::insecure_skip_verify())
             .dns_resolver(dns_resolver)
+            .relay_mode(iroh::RelayMode::Default)
+            .address_lookup(iroh::address_lookup::PkarrPublisher::n0_dns())
+            .address_lookup(iroh::address_lookup::PkarrResolver::n0_dns())
             .net_report_config({
                 let mut c = iroh::NetReportConfig::default();
                 c.https_probes = false;
