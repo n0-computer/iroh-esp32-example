@@ -7,6 +7,7 @@
 //!     cargo run -- <endpoint-ticket>
 
 use iroh::Endpoint;
+use iroh::endpoint::presets;
 use iroh_tickets::endpoint::EndpointTicket;
 
 const ECHO_ALPN: &[u8] = b"echo/0";
@@ -26,7 +27,7 @@ async fn main() -> anyhow::Result<()> {
     let ticket: EndpointTicket = ticket_str.parse()?;
     let addr: iroh::EndpointAddr = ticket.into();
 
-    let endpoint = Endpoint::builder().bind().await?;
+    let endpoint = Endpoint::bind(presets::N0).await?;
 
     println!("Connecting to ESP32...");
     let conn = endpoint.connect(addr, ECHO_ALPN).await?;
