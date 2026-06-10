@@ -181,6 +181,10 @@ fn main() {
             .relay_mode(iroh::RelayMode::Default)
             .address_lookup(iroh::address_lookup::PkarrPublisher::n0_dns())
             .address_lookup(iroh::address_lookup::PkarrResolver::n0_dns())
+            // Disable HTTPS latency probes and captive-portal detection: both make
+            // real-cert TLS connections, which our minimal crypto provider (no RSA,
+            // AES-128-GCM + X25519 only) cannot verify. QAD (UDP) probes still
+            // measure relay latency.
             .net_report_config({
                 let mut c = iroh::NetReportConfig::default();
                 c.https_probes = false;
