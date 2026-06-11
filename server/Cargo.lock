@@ -655,12 +655,12 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "5.0.0-pre.6"
+version = "5.0.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "335f1947f241137a14106b6f5acc5918a5ede29c9d71d3f2cb1678d5075d9fc3"
+checksum = "4f359e08ca85e7bd759e1fd933ff2bccd81864c60a8fba0e259c7f822b0924bf"
 dependencies = [
  "cfg-if",
- "cpufeatures 0.2.17",
+ "cpufeatures 0.3.0",
  "curve25519-dalek-derive",
  "digest 0.11.3",
  "fiat-crypto 0.3.0",
@@ -783,7 +783,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccc2776f0c61eca1ca32528f85548abd1a4be8fb53d1b21c013e4f18da1e7090"
 dependencies = [
  "data-encoding",
- "syn 2.0.117",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1026,11 +1026,11 @@ dependencies = [
 
 [[package]]
 name = "ed25519-dalek"
-version = "3.0.0-pre.7"
+version = "3.0.0-rc.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20449acd54b660981ae5caa2bcb56d1fe7f25f2e37a38ec507400fab034d4bb6"
+checksum = "b011170fe4f04665565b4110afef66774fe9ffff278f3eb5b81cc73d26e27d60"
 dependencies = [
- "curve25519-dalek 5.0.0-pre.6",
+ "curve25519-dalek 5.0.0-rc.0",
  "ed25519 3.0.0",
  "rand_core 0.10.1",
  "serde",
@@ -1247,7 +1247,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2138,7 +2138,7 @@ dependencies = [
 [[package]]
 name = "iroh"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#248c2cde02fef5e8c2d79900cc89b4b2ee4d319b"
+source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#38d629f304b150383c309747f76ed516292bb3b4"
 dependencies = [
  "backon",
  "blake3",
@@ -2147,7 +2147,7 @@ dependencies = [
  "ctutils",
  "data-encoding",
  "derive_more",
- "ed25519-dalek 3.0.0-pre.7",
+ "ed25519-dalek 3.0.0-rc.0",
  "futures-util",
  "getrandom 0.4.2",
  "hickory-resolver",
@@ -2189,14 +2189,14 @@ dependencies = [
 [[package]]
 name = "iroh-base"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#248c2cde02fef5e8c2d79900cc89b4b2ee4d319b"
+source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#38d629f304b150383c309747f76ed516292bb3b4"
 dependencies = [
- "curve25519-dalek 5.0.0-pre.6",
+ "curve25519-dalek 5.0.0-rc.0",
  "data-encoding",
  "data-encoding-macro",
  "derive_more",
  "digest 0.11.3",
- "ed25519-dalek 3.0.0-pre.7",
+ "ed25519-dalek 3.0.0-rc.0",
  "getrandom 0.4.2",
  "n0-error",
  "rand",
@@ -2210,7 +2210,7 @@ dependencies = [
 [[package]]
 name = "iroh-dns"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#248c2cde02fef5e8c2d79900cc89b4b2ee4d319b"
+source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#38d629f304b150383c309747f76ed516292bb3b4"
 dependencies = [
  "arc-swap",
  "cfg_aliases",
@@ -2261,7 +2261,7 @@ dependencies = [
 [[package]]
 name = "iroh-relay"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#248c2cde02fef5e8c2d79900cc89b4b2ee4d319b"
+source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#38d629f304b150383c309747f76ed516292bb3b4"
 dependencies = [
  "blake3",
  "bytes",
@@ -2739,7 +2739,7 @@ dependencies = [
 [[package]]
 name = "netwatch"
 version = "0.18.0"
-source = "git+https://github.com/n0-computer/net-tools?branch=rklaehn/has_netdev#0811aad502ac3d9e04be17b69761999ba41f43d3"
+source = "git+https://github.com/n0-computer/net-tools?branch=has_netdev#0ffa3e8c287a9e907d3f7e8b6fa3ffc8b4626864"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -2870,7 +2870,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3539,7 +3539,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3596,7 +3596,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3739,7 +3739,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b55fb86dfd3a2f5f76ea78310a88f96c4ea21a3031f8d212443d56123fd0521"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4157,7 +4157,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix 1.1.4",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4853,7 +4853,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
