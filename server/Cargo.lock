@@ -2138,7 +2138,7 @@ dependencies = [
 [[package]]
 name = "iroh"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#9cf9c2d7bec3871313878656b0ac8f0fa3838990"
+source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#248c2cde02fef5e8c2d79900cc89b4b2ee4d319b"
 dependencies = [
  "backon",
  "blake3",
@@ -2189,7 +2189,7 @@ dependencies = [
 [[package]]
 name = "iroh-base"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#9cf9c2d7bec3871313878656b0ac8f0fa3838990"
+source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#248c2cde02fef5e8c2d79900cc89b4b2ee4d319b"
 dependencies = [
  "curve25519-dalek 5.0.0-pre.6",
  "data-encoding",
@@ -2210,7 +2210,7 @@ dependencies = [
 [[package]]
 name = "iroh-dns"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#9cf9c2d7bec3871313878656b0ac8f0fa3838990"
+source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#248c2cde02fef5e8c2d79900cc89b4b2ee4d319b"
 dependencies = [
  "arc-swap",
  "cfg_aliases",
@@ -2261,7 +2261,7 @@ dependencies = [
 [[package]]
 name = "iroh-relay"
 version = "1.0.0-rc.1"
-source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#9cf9c2d7bec3871313878656b0ac8f0fa3838990"
+source = "git+https://github.com/n0-computer/iroh?branch=rklaehn/iroh-rc-1-esp32#248c2cde02fef5e8c2d79900cc89b4b2ee4d319b"
 dependencies = [
  "blake3",
  "bytes",

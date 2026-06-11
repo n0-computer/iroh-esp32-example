@@ -42,7 +42,7 @@ experimental = ["esp-idf-svc/experimental"]
 log = "0.4"
 esp-idf-svc = "0.51"
 iroh = { git = "https://github.com/n0-computer/iroh", branch = "rklaehn/iroh-rc-1-esp32", default-features = false }
-iroh-relay = { git = "https://github.com/n0-computer/iroh", branch = "rklaehn/iroh-rc-1-esp32", default-features = false, features = ["insecure-skip-verify"] }
+iroh-relay = { git = "https://github.com/n0-computer/iroh", branch = "rklaehn/iroh-rc-1-esp32", default-features = false }
 iroh-tickets = { git = "https://github.com/n0-computer/iroh-tickets" }
 tokio = { version = "1", features = ["rt"] }
 rustls-rustcrypto = { git = "https://github.com/n0-computer/rustls-rustcrypto", branch = "feature-flag-algorithms-v0.0.2", default-features = false, features = ["std", "p256"] }
