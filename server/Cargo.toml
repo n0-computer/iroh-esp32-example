@@ -41,15 +41,15 @@ experimental = ["esp-idf-svc/experimental"]
 [dependencies]
 log = "0.4"
 esp-idf-svc = "0.51"
-iroh = { git = "https://github.com/n0-computer/iroh", branch = "rklaehn/iroh-rc-1-esp32", default-features = false }
-iroh-relay = { git = "https://github.com/n0-computer/iroh", branch = "rklaehn/iroh-rc-1-esp32", default-features = false }
-iroh-tickets = { git = "https://github.com/n0-computer/iroh-tickets" }
+iroh = { git = "https://github.com/n0-computer/iroh", branch = "refactor-hickory", default-features = false }
+iroh-relay = { git = "https://github.com/n0-computer/iroh", branch = "refactor-hickory", default-features = false }
+iroh-tickets = "1.0.0"
 tokio = { version = "1", features = ["rt"] }
 rustls-rustcrypto = { git = "https://github.com/n0-computer/rustls-rustcrypto", branch = "feature-flag-algorithms-v0.0.2", default-features = false, features = ["std", "p256"] }
 rustls = { version = "0.23", default-features = false }
 aes = "0.8"
 aes-gcm = "0.10"
-n0-error = "=1.0.0-rc.0"
+n0-error = "1.0.0"
 n0-future = "0.3"
 
 # --- Optional Embassy Integration ---
@@ -74,7 +74,5 @@ embuild = "0.33"
 
 [patch.crates-io]
 # iroh-base: unify the copy used by iroh (this branch) and iroh-tickets (crates.io).
-iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "rklaehn/iroh-rc-1-esp32" }
-# netwatch: esp-idf interface support (posix_minimal IpNet/Ipv6AddrFlags parity).
-netwatch = { git = "https://github.com/n0-computer/net-tools", branch = "has_netdev" }
-# noq needs no esp32 changes — iroh uses the published rc.1 from crates.io.
+iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "refactor-hickory" }
+# netwatch esp-idf support (posix_minimal) is upstreamed in 0.19 — no patch needed.
