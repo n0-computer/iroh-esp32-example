@@ -107,5 +107,9 @@ impl Resolver for StdDnsResolver {
 
     fn clear_cache(&self) {}
 
-    fn reset(&mut self) {}
+    fn reset(&self) -> Box<dyn Resolver> {
+        // StdDnsResolver is stateless (delegates to the OS resolver), so a fresh
+        // clone is a valid replacement after a network change.
+        Box::new(self.clone())
+    }
 }

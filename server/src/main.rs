@@ -7,12 +7,13 @@ use esp_idf_svc::wifi::{BlockingWifi, ClientConfiguration, Configuration, EspWif
 use iroh::endpoint::Connection;
 use iroh::protocol::{AcceptError, ProtocolHandler, Router};
 use iroh::SecretKey;
-use iroh::tls::CaRootsConfig;
+use iroh::tls::CaTlsConfig;
 use iroh_tickets::endpoint::EndpointTicket;
 use log::{info, warn};
 
 mod std_dns_resolver;
 mod quic_crypto_provider;
+mod insecure_verifier;
 
 /// The ALPN for the echo protocol
 const ECHO_ALPN: &[u8] = b"echo/0";
@@ -176,11 +177,17 @@ fn main() {
 
         let mut builder = iroh::Endpoint::builder(iroh::endpoint::presets::Empty)
             .crypto_provider(provider)
-            .ca_roots_config(CaRootsConfig::insecure_skip_verify())
+            .ca_tls_config(CaTlsConfig::custom_server_cert_verifier(
+                insecure_verifier::skip_verify(),
+            ))
             .dns_resolver(dns_resolver)
             .relay_mode(iroh::RelayMode::Default)
             .address_lookup(iroh::address_lookup::PkarrPublisher::n0_dns())
             .address_lookup(iroh::address_lookup::PkarrResolver::n0_dns())
+            // Disable HTTPS latency probes and captive-portal detection: both make
+            // real-cert TLS connections, which our minimal crypto provider (no RSA,
+            // AES-128-GCM + X25519 only) cannot verify. QAD (UDP) probes still
+            // measure relay latency.
             .net_report_config({
                 let mut c = iroh::NetReportConfig::default();
                 c.https_probes = false;
