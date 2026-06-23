@@ -122,40 +122,15 @@ struct Echo;
 
 impl ProtocolHandler for Echo {
     async fn accept(&self, connection: Connection) -> Result<(), AcceptError> {
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
-
         let endpoint_id = connection.remote_id();
-        // Per-connection heap probe: a leak shows as `free` dropping each
-        // connection; fragmentation shows as `free` ~steady but `largest_8bit`
-        // shrinking (no contiguous block left).
-        info!(
-            "Accepted connection from {endpoint_id} [heap free={} largest_8bit={}]",
-            unsafe { esp_idf_svc::sys::esp_get_free_heap_size() },
-            unsafe {
-                esp_idf_svc::sys::heap_caps_get_largest_free_block(
-                    esp_idf_svc::sys::MALLOC_CAP_8BIT,
-                )
-            },
-        );
+        info!("Accepted connection from {endpoint_id}");
 
         let (mut send, mut recv) = connection.accept_bi().await?;
         info!("Got bidi stream");
 
-        // Echo with a 1 KiB STACK buffer instead of tokio::io::copy, whose 8 KiB
-        // heap buffer OOM'd on the 2nd connection (the big region fragments after
-        // the first connection, leaving no 8 KiB-contiguous block). A stack buffer
-        // puts zero pressure on the heap on the data path.
-        let mut buf = [0u8; 1024];
-        let mut total: u64 = 0;
-        loop {
-            let n = AsyncReadExt::read(&mut recv, &mut buf).await?;
-            if n == 0 {
-                break;
-            }
-            AsyncWriteExt::write_all(&mut send, &buf[..n]).await?;
-            total += n as u64;
-        }
-        info!("Copied over {total} byte(s)");
+        // Echo bytes back
+        let bytes_sent = tokio::io::copy(&mut recv, &mut send).await?;
+        info!("Copied over {bytes_sent} byte(s)");
 
         send.finish()?;
 
@@ -200,35 +175,15 @@ fn main() {
     rt.block_on(async {
         let dns_resolver = iroh::dns::DnsResolver::custom(std_dns_resolver::StdDnsResolver);
 
-        // QUIC transport config. The defaults size flow-control windows for
-        // internet throughput (MB-scale per connection) — on a ~512 KB-SRAM ESP32
-        // the first stream's receive buffer alone would OOM. Shrink hard: one bidi
-        // stream (echo only), tiny windows, no datagrams. Chip-independent and
-        // SPIRAM-safe (it only caps throughput), so it belongs on every target.
-        let transport_config = {
-            use iroh::endpoint::{QuicTransportConfig, VarInt};
-            QuicTransportConfig::builder()
-                .max_concurrent_bidi_streams(VarInt::from_u32(1))
-                .max_concurrent_uni_streams(VarInt::from_u32(0))
-                .stream_receive_window(VarInt::from_u32(16 * 1024))
-                .receive_window(VarInt::from_u32(64 * 1024))
-                .send_window(64 * 1024)
-                .datagram_receive_buffer_size(None)
-                .build()
-        };
-
         let mut builder = iroh::Endpoint::builder(iroh::endpoint::presets::Empty)
             .crypto_provider(provider)
             .ca_tls_config(CaTlsConfig::custom_server_cert_verifier(
                 insecure_verifier::skip_verify(),
             ))
             .dns_resolver(dns_resolver)
-            .transport_config(transport_config)
-            // no-spiram: bare direct-QUIC. Relay + pkarr discovery ripped out —
-            // the heap hogs were the relay reportgen/QAD probing (4 relays) and
-            // the pkarr reqwest clients. Dial via the LONG ticket (IP+port);
-            // LAN-direct only: no NAT traversal, no discovery.
-            .relay_mode(iroh::RelayMode::Disabled)
+            .relay_mode(iroh::RelayMode::Default)
+            .address_lookup(iroh::address_lookup::PkarrPublisher::n0_dns())
+            .address_lookup(iroh::address_lookup::PkarrResolver::n0_dns())
             // Disable HTTPS latency probes and captive-portal detection: both make
             // real-cert TLS connections, which our minimal crypto provider (no RSA,
             // AES-128-GCM + X25519 only) cannot verify. QAD (UDP) probes still
@@ -245,20 +200,6 @@ fn main() {
         }
 
         let endpoint = builder.bind().await.expect("unable to bind endpoint");
-
-        // no-spiram instrumentation: idle heap baseline right after bind. `free`
-        // is total 8-bit-capable heap; `largest_8bit` is the biggest contiguous
-        // block (what actually limits a single allocation). SPIRAM-safe — stays
-        // on both branches.
-        info!(
-            "[heap] after bind: free={} largest_8bit={}",
-            unsafe { esp_idf_svc::sys::esp_get_free_heap_size() },
-            unsafe {
-                esp_idf_svc::sys::heap_caps_get_largest_free_block(
-                    esp_idf_svc::sys::MALLOC_CAP_8BIT,
-                )
-            },
-        );
 
         let endpoint_id = endpoint.addr().id;
         let port = endpoint
