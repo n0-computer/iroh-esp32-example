@@ -3,7 +3,9 @@
 
 # Rust build outputs
 /target/
-/server/target/
+/esp32-s3/target/
+/esp32-spiram/target/
+/esp32-no-spiram/target/
 /client/target/
 
 # IDE / tool caches
