@@ -1,0 +1,52 @@
+# ESP32-C6 relay variant (no PSRAM). Mirrors the proven no-SPIRAM *S3* relay config
+# (not the spiram one): a single pinned relay whose TLS handshake fits in internal
+# SRAM. NO pkarr discovery — that needs real-cert HTTPS the minimal crypto provider
+# can't do (see main.rs). So: relay connectivity, no short-ticket discovery.
+
+# Flash size — pin to the board (default 2 MB mis-sizes the partition table → an
+# mmu_hal_map_region assert at boot; see server-esp32-c6).
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+# Main task stack. The relay TLS handshake peaks ~80 KB (rustls deframer + X25519)
+# on Xtensa; RISC-V spills more, so budget 100 KB. The no-SPIRAM S3 had to needle
+# this to 88 KB because at higher stack the rustls deframer couldn't find an 8 KB
+# *contiguous* heap block — but the C6's unified, far-less-fragmented heap makes
+# that block easy, so we can run a comfortable stack here. If a DNS/handshake path
+# overflows (watchpoint traps it) raise this; if relay setup OOMs, lower it.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=102400
+
+# We use rustls, not mbedtls - disable to save RAM and flash
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
+CONFIG_MBEDTLS_TLS_ENABLED=n
+
+# WiFi static buffers at the no-spiram floor — every KB funds the relay handshake.
+# Chip-independent CONFIG_ESP_WIFI_* names (the esp32-only CONFIG_ESP32_WIFI_*
+# aliases are silently ignored here). Dynamic RX kept at 16 to avoid relay rx drops.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=4
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER=y
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=4
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=16
+CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=n
+CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=n
+
+# lwIP: the relay data path is WS-over-TCP to the one relay (steady, low rate for an
+# echo), so modest TCP windows hold; floor the static pools (they cost upfront heap).
+CONFIG_LWIP_UDP_RECVMBOX_SIZE=16
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=2880
+CONFIG_LWIP_TCP_WND_DEFAULT=2880
+CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=16
+CONFIG_LWIP_TCPIP_TASK_STACK_SIZE=4096
+CONFIG_LWIP_MAX_UDP_PCBS=6
+CONFIG_LWIP_MAX_SOCKETS=6
+
+# IPv4-only: frees IPv6 state off the heap and halves the relay's happy-eyeballs
+# dial set (no AAAA) — that FuturesUnordered buffer was an OOM contributor.
+CONFIG_LWIP_IPV6=n
+
+# ROM nano printf: smaller code + lower stack footprint on the format path.
+CONFIG_NEWLIB_NANO_FORMAT=y
+
+# Detect stack overflow via hardware watchpoint.
+CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK=y

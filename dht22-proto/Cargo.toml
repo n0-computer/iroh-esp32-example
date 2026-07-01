@@ -1,0 +1,19 @@
+[package]
+name = "dht22-proto"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Shared irpc protocol + record types for the ESP32 dual-DHT22 sensor logger"
+
+# Board-agnostic: no esp-idf deps, no [patch]. Compiles on the host (for the GUI
+# client) and on xtensa-esp32-espidf (as a dep of the esp32 binary, which supplies
+# the ring-free iroh/irpc patch graph-wide).
+[dependencies]
+serde = { version = "1", default-features = false, features = ["derive"] }
+# Defines the RPC surface. default-features = false drops noq_endpoint_setup
+# (rcgen + noq/rustls-ring); features kept are what the protocol definition needs.
+# `spans` is required: the rpc_requests macro emits `.parent_span_opt()`, which
+# only exists with that feature.
+irpc = { version = "0.17", default-features = false, features = ["rpc", "spans", "derive", "stream"] }
+# The rpc_requests macro expands to tracing spans in this crate.
+tracing = "0.1"

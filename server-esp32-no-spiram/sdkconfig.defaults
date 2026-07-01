@@ -1,0 +1,88 @@
+# Tokio current_thread runtime runs all async tasks on this single stack.
+# Was 112KB for hickory; hickory is gone. Measured high-water on the bare LX6
+# was ~34.5KB used (uxTaskGetStackHighWaterMark reported 14604 free of 49152),
+# so 40KB leaves a ~6.4KB margin and returns ~8KB to the heap — decisive on a
+# board that OOM'd at ~5.7KB free. If a deeper path ever exceeds this, the
+# stack-overflow watchpoint (below) traps it cleanly (distinct from a heap OOM).
+# SPIRAM-RISKY: the relay/pkarr (reqwest/hyper) path needs more — gate before
+# re-enabling SPIRAM.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=40960
+
+# Use this to set FreeRTOS kernel tick frequency to 1000 Hz (100 Hz by default).
+# This allows to use 1 ms granularity for thread sleeps (10 ms by default).
+#CONFIG_FREERTOS_HZ=1000
+
+# We use rustls, not mbedtls - disable to save RAM and flash
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
+CONFIG_MBEDTLS_TLS_ENABLED=n
+
+# ============================================================================
+# SPIRAM TOGGLE — switch targets by commenting one block and uncommenting the
+# other. The stack/buffer cuts above are sized for no-spiram but also work WITH
+# spiram (just unnecessary headroom), so ONLY this block changes between targets.
+# (The relay/pkarr split lives in main.rs — that's the other half of a full
+# feature gate, for when SPIRAM should also re-enable discovery/relay.)
+# Currently active: WITHOUT SPIRAM (no-spiram branch default).
+# ----------------------------------------------------------------------------
+# --- WITH SPIRAM (M5Stick / WROVER have PSRAM; malloc heap lives in PSRAM) ---
+#CONFIG_ESP32_SPIRAM_SUPPORT=y
+#CONFIG_SPIRAM=y
+#CONFIG_SPIRAM_USE_MALLOC=y
+#CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=0
+#CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=0
+#CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y
+#
+# --- WITHOUT SPIRAM (heap + all task stacks must fit in internal SRAM) ---
+CONFIG_ESP32_SPIRAM_SUPPORT=n
+# ============================================================================
+
+# WiFi buffers — CONFIG_ESP_WIFI_* are the canonical, chip-independent symbols;
+# the CONFIG_ESP32_WIFI_* names are esp32-only aliases the S3 silently ignores
+# (→ defaults → OOM). Static TX buffers avoid dynamic internal-SRAM allocation.
+#
+# AGGRESSIVE (bare-LX6 only): static buffers are PRE-ALLOCATED (~1.6 KB each), so
+# they hit the idle baseline directly — unlike the dynamic pool, which only grows
+# under load. This is the biggest remaining baseline lever. Cut to the functional
+# floor and let the deterministic ESP silicon prove it out; the S3/SPIRAM targets
+# keep the conservative defaults. Static RX 10→4 (~9.6 KB) + static TX 8→4
+# (~6.4 KB) ≈ 16 KB reclaimed. Cost: lower WiFi throughput / more retransmits —
+# irrelevant for an echo.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=4
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER=y
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=4
+# Dynamic RX pool (default 32 × ~1.6 KB) — allocated on demand, so this caps the
+# peak rather than the baseline. Kept at 8 as a safe-ish ceiling.
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=8
+# Disable AMPDU (block-ack aggregation) — frees the RX reorder buffers; the
+# throughput cost is irrelevant for an echo.
+CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=n
+CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=n
+
+# no-spiram: shrink lwIP buffers. Relay + pkarr are gone, so there is NO TCP
+# traffic anymore (QUIC/SNTP/DNS are all UDP) — TCP windows never allocate, but
+# we floor them for hygiene. The real reclaim is the static pools (sockets/PCBs/
+# mboxes), which cost upfront heap. UDP mbox kept moderate so QUIC rx bursts
+# aren't dropped. (Was 32/8192/8192/32/4096/16/16 for the PSRAM relay-probe era.)
+CONFIG_LWIP_UDP_RECVMBOX_SIZE=12
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=2880
+CONFIG_LWIP_TCP_WND_DEFAULT=2880
+CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=8
+CONFIG_LWIP_TCPIP_TASK_STACK_SIZE=4096
+# Concurrent UDP needs are small: QUIC (1) + SNTP (1) + DNS (transient). 6 each
+# leaves margin over the ~3-4 actually in use; the static pools cost upfront heap.
+CONFIG_LWIP_MAX_UDP_PCBS=6
+CONFIG_LWIP_MAX_SOCKETS=6
+
+# Nuke IPv6: the network is IPv4-only (typical home / factory WLAN). Measured RAM
+# saving is small (~2KB free heap, A/B: 170736 off vs 168624 on; largest_8bit
+# unchanged), but it reclaims ~24KB of flash — worth it on the 4MB LX6 (app
+# partition was ~92% full) and matches the IPv4-only reality.
+CONFIG_LWIP_IPV6=n
+
+# Use the ROM's nano printf/scanf: smaller formatting code AND a lower stack
+# footprint on the format path (which also helps the main-task high-water).
+CONFIG_NEWLIB_NANO_FORMAT=y
+
+# Detect stack overflow via hardware watchpoint (uses 1 of 2 debug watchpoints)
+CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK=y

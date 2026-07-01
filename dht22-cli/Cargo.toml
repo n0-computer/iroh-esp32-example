@@ -1,0 +1,20 @@
+[package]
+name = "dht22-cli"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "CLI client for the ESP32 dual-DHT22 sensor logger (latest poll + range dumps)"
+
+# Native target: crates.io iroh + ring, no [patch] (unlike the ESP32 binary). irpc
+# + irpc-iroh published; dht22-proto carries the shared SensorProtocol.
+[dependencies]
+dht22-proto = { path = "../dht22-proto" }
+iroh = "1.0.0"
+iroh-tickets = "1.0.0"
+irpc = { version = "0.17", default-features = false, features = ["rpc", "spans", "derive", "stream"] }
+irpc-iroh = "0.17"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+anyhow = "1"
+# iroh's TLS on native uses ring; install its provider at startup.
+rustls = { version = "0.23", default-features = false, features = ["std", "ring"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

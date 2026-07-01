@@ -1,0 +1,86 @@
+# Tokio current_thread runtime runs all async tasks on this single stack. THE
+# CEILING, characterized: the relay TLS handshake peaks at ~80.5KB stack, then
+# curve25519 X25519 (in rustls ClientConnection::new) needs ~5.5-9.5KB more, so
+# the stack floor is ~88KB. But at 88KB the rustls incoming deframer (which needs
+# an 8192-byte CONTIGUOUS block for the relay cert flight) only finds 5120 free.
+# Reclaiming enough stack to give it 8192 (~83KB) drops below the X25519 floor and
+# overflows. The X25519-stack and the deframer-heap needs do not both fit in the
+# no-SPIRAM S3's internal SRAM. 88KB is the best-effort (furthest-reaching) value.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=90112
+
+# Use this to set FreeRTOS kernel tick frequency to 1000 Hz (100 Hz by default).
+# This allows to use 1 ms granularity for thread sleeps (10 ms by default).
+#CONFIG_FREERTOS_HZ=1000
+
+# We use rustls, not mbedtls - disable to save RAM and flash
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
+CONFIG_MBEDTLS_TLS_ENABLED=n
+
+# ============================================================================
+# SPIRAM TOGGLE — switch targets by commenting one block and uncommenting the
+# other. The stack/buffer cuts above are sized for no-spiram but also work WITH
+# spiram (just unnecessary headroom), so ONLY this block changes between targets.
+# (The relay/pkarr split lives in main.rs — that's the other half of a full
+# feature gate, for when SPIRAM should also re-enable discovery/relay.)
+# Currently active: WITHOUT SPIRAM (no-spiram branch default).
+# ----------------------------------------------------------------------------
+# --- WITH SPIRAM (M5Stick / WROVER have PSRAM; malloc heap lives in PSRAM) ---
+#CONFIG_ESP32_SPIRAM_SUPPORT=y
+#CONFIG_SPIRAM=y
+#CONFIG_SPIRAM_USE_MALLOC=y
+#CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=0
+#CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=0
+#CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y
+#
+# --- WITHOUT SPIRAM (heap + all task stacks must fit in internal SRAM) ---
+CONFIG_ESP32_SPIRAM_SUPPORT=n
+# ============================================================================
+
+# WiFi buffers — CONFIG_ESP_WIFI_* are the canonical, chip-independent symbols;
+# the CONFIG_ESP32_WIFI_* names are esp32-only aliases the S3 silently ignores
+# (→ defaults → OOM). Static buffers are pre-allocated, so trimming them buys
+# baseline heap directly — the relay path needs every KB. RELAY variant trims
+# static RX 10→6 (~6.4 KB) and static TX 8→6 (~3.2 KB) ≈ 10 KB reclaimed. Kept
+# above the LX6's floor of 4 (which hit `sendmsg ENOMEM` under QUIC send bursts).
+# Cut to the floor of 4 to fund a bigger main task stack (needle-threading the
+# relay TLS connection). The relay data path is WS-over-TCP to one relay (steady,
+# not the bursty raw-QUIC sends that hit ENOMEM at 4 on the LX6), so 4 should hold.
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=4
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER=y
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=4
+# Dynamic RX pool (default 32 × ~1.6 KB), allocated on demand — caps peak, not
+# baseline. Left at 16 to avoid rx drops on the relay receive path.
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=16
+# Disable AMPDU (block-ack aggregation) — frees the RX reorder buffers; the
+# throughput cost is irrelevant for an echo.
+CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=n
+CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=n
+
+# no-spiram: shrink lwIP buffers. Relay + pkarr are gone, so there is NO TCP
+# traffic anymore (QUIC/SNTP/DNS are all UDP) — TCP windows never allocate, but
+# we floor them for hygiene. The real reclaim is the static pools (sockets/PCBs/
+# mboxes), which cost upfront heap. UDP mbox kept moderate so QUIC rx bursts
+# aren't dropped. (Was 32/8192/8192/32/4096/16/16 for the PSRAM relay-probe era.)
+CONFIG_LWIP_UDP_RECVMBOX_SIZE=16
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=2880
+CONFIG_LWIP_TCP_WND_DEFAULT=2880
+CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=16
+CONFIG_LWIP_TCPIP_TASK_STACK_SIZE=4096
+CONFIG_LWIP_MAX_UDP_PCBS=6
+CONFIG_LWIP_MAX_SOCKETS=6
+
+# Nuke IPv6: the network is IPv4-only (DHCP gives a v4 address; the relay is
+# reached over v4). Disabling it in lwIP frees the IPv6 PCBs / ND6 / MLD state
+# off the heap, the IPv6 socket bind is skipped, and combined with the IPv4-only
+# DNS resolver it halves the relay's happy-eyeballs dial set (no AAAA) — which is
+# the FuturesUnorderedBounded buffer that was OOM'ing.
+CONFIG_LWIP_IPV6=n
+
+# Use the ROM's nano printf/scanf: smaller formatting code AND a lower stack
+# footprint on the format path. Behavior-neutral for this firmware (no wide
+# float formatting), so it's a free win on every target.
+CONFIG_NEWLIB_NANO_FORMAT=y
+
+# Detect stack overflow via hardware watchpoint (uses 1 of 2 debug watchpoints)
+CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK=y

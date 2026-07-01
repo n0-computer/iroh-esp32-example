@@ -1,0 +1,102 @@
+# SHIPPING-BUILD OPTION: uncomment this line together with `panic = "immediate-abort"`
+# below and `build-std = ["std"]` in .cargo/config.toml to drop ~75 KB of panic-message
+# machinery. Cost: zero panic diagnostics on serial — only do this once development is done.
+# cargo-features = ["panic-immediate-abort"]
+
+[package]
+name = "server-esp32-spiram-mdns"
+version = "0.1.0"
+authors = ["Ruediger Klaehn <rklaehn@protonmail.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+resolver = "2"
+rust-version = "1.77"
+
+[[bin]]
+name = "server-esp32-spiram-mdns"
+harness = false # do not use the built-in cargo test harness -> resolve rust-analyzer errors
+
+[profile.release]
+# "z" (not "s"): the mDNS deps (iroh-mdns-address-lookup + swarm-discovery) push
+# total code over the ESP32 LX6's ~3.34 MB cached-flash instruction window
+# (iram0_2_seg). "z" optimizes harder for size and reclaims the headroom needed,
+# while keeping panic diagnostics (unlike the immediate-abort shipping option below).
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+# SHIPPING-BUILD OPTION: swap the line above for `panic = "immediate-abort"` (and enable
+# the cargo-features line at the top of this file + set build-std = ["std"] in
+# .cargo/config.toml). Saves ~75 KB by trapping at panic sites with no message/formatting,
+# at the cost of all panic info on serial. Keep "abort" for development.
+# panic = "immediate-abort"
+
+[profile.dev]
+debug = true    # Symbols are nice, and they don't increase the size on Flash
+opt-level = "z"
+lto = true
+codegen-units = 1
+
+[features]
+default = []
+
+experimental = ["esp-idf-svc/experimental"]
+
+[dependencies]
+log = "0.4"
+esp-idf-svc = "0.51"
+iroh = { version = "1.0.0", default-features = false }
+iroh-relay = { version = "1.0.0", default-features = false }
+iroh-tickets = "1.0.0"
+# mDNS local-network address lookup (P2P discovery). Pulled from crates.io; its
+# `iroh` dep is unified with our patched branch via [patch.crates-io] below.
+iroh-mdns-address-lookup = "0.4.0"
+tokio = { version = "1", features = ["rt"] }
+rustls-rustcrypto = { git = "https://github.com/n0-computer/rustls-rustcrypto", branch = "feature-flag-algorithms-v0.0.2", default-features = false, features = ["std", "p256"] }
+rustls = { version = "0.23", default-features = false }
+aes = "0.8"
+aes-gcm = "0.10"
+n0-error = "1.0.0"
+n0-future = "0.3"
+
+# --- Optional Embassy Integration ---
+# esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync"] }
+
+# If you enable embassy-time-driver, you MUST also add one of:
+
+# a) Standalone Embassy libs ( embassy-time, embassy-sync etc.) with a foreign async runtime:
+# embassy-time = { version = "0.4.0", features = ["generic-queue-8"] } # NOTE: any generic-queue variant will work
+
+# b) With embassy-executor:
+# embassy-executor = { version = "0.7", features = ["executor-thread", "arch-std"] }
+
+# NOTE: if you use embassy-time with embassy-executor you don't need the generic-queue-8 feature
+
+# --- Temporary workaround for embassy-executor < 0.8 ---
+# esp-idf-svc = { version = "0.51", features = ["embassy-time-driver", "embassy-sync"] }
+# critical-section = { version = "1.1", features = ["std"], default-features = false }
+
+[build-dependencies]
+embuild = "0.33"
+
+[patch.crates-io]
+# Use crates.io versions of the iroh family everywhere (incl. inside
+# iroh-mdns-address-lookup), but redirect them to the esp32-no-spiram branch which
+# carries the ESP-IDF support (and a hickory-free DNS path the mDNS lookup wants).
+# This keeps a single, unified iroh across our crate and the mDNS lookup crate. The
+# branch's no-SPIRAM trimming is harmless on this PSRAM target.
+iroh = { git = "https://github.com/n0-computer/iroh", branch = "esp32-no-spiram" }
+iroh-relay = { git = "https://github.com/n0-computer/iroh", branch = "esp32-no-spiram" }
+iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "esp32-no-spiram" }
+# netwatch esp-idf support (posix_minimal) is upstreamed in 0.19 — no patch needed.
+# TEMPORARY: crates.io iroh-mdns-address-lookup 0.4.0 pulls iroh with default
+# features (tls-ring -> ring), which doesn't cross-compile to Xtensa. Override with
+# the local `avoid-default-features` branch (iroh = default-features = false) until
+# that fix is published; then drop this patch and use the crates.io version.
+iroh-mdns-address-lookup = { path = "/Users/rklaehn/projects_git/iroh-address-lookups/iroh-mdns-address-lookup" }
+# TEMPORARY: swarm-discovery 0.6.2 calls set_reuse_port under #[cfg(unix)], but
+# esp-idf/lwIP defines SO_REUSEPORT as unimplemented (setsockopt -> ENOPROTOOPT),
+# so the mDNS socket fails to bind ("Cannot bind to IPv4 or IPv6"). This is a local
+# checkout of rkuhn/swarm-discovery (branch esp32-reuse-port) that gates that call
+# out for target_os = "espidf". Upstream candidate; drop once fixed upstream.
+swarm-discovery = { path = "/Users/rklaehn/projects_git/swarm-discovery" }

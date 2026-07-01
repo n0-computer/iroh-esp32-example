@@ -1,12 +1,6 @@
 # macOS
 .DS_Store
-
-# Rust build outputs
-/target/
-/esp32-s3/target/
-/esp32-spiram/target/
-/esp32-no-spiram/target/
-/client/target/
-
-# IDE / tool caches
 **/.DS_Store
+
+# Rust build outputs — every crate, any depth
+target/
