@@ -1,27 +1,27 @@
-# iroh on an ESP32-C6 (RISC-V, no SPIRAM)
+# iroh on an ESP32-C6 (RISC-V, no PSRAM)
 
 An iroh endpoint running on an ESP32-C6 — a single-core 32-bit **RISC-V**
 (RV32IMAC) chip with WiFi 6, **no PSRAM**. This is the bare
-[`server-esp32-no-spiram`](../server-esp32-no-spiram/README.md) echo server ported
+[`server-esp32`](../server-esp32/README.md) echo server ported
 from Xtensa to RISC-V: the application code is identical (it's chip-agnostic —
 just NVS + WiFi + iroh), so the port is **config only**.
 
 It targets `riscv32imac-esp-espidf` and depends on the same `esp32-no-spiram` iroh
 branch. Like the bare ESP32, the whole iroh heap and every task stack must fit in
-internal SRAM (the C6 has ~512 KB), so it keeps the no-spiram memory tuning.
+internal SRAM (the C6 has ~512 KB), so it keeps the no-psram memory tuning.
 
 > ⚠️ Same caveat as the bare ESP32: this runs near the memory floor and is
 > **LAN-direct only** (relay + discovery are removed — dial via the long ticket).
 > For headroom and relay/discovery/NAT-traversal, use the
-> [`server-esp32-spiram`](../server-esp32-spiram/README.md) (PSRAM) target.
+> [`server-esp32-psram`](../server-esp32-psram/README.md) (PSRAM) target.
 
 ## What changed from the bare ESP32 (the whole port)
 
 - **`.cargo/config.toml`** — `target = "riscv32imac-esp-espidf"` and `MCU=esp32c6`
   (was `xtensa-esp32-espidf` / `esp32`). The C6's main core is RV32IMAC, which has
   the `a` atomics extension — unlike the C3 (`imc`), so no extra atomics shims are
-  needed beyond what the no-spiram graph already does for 64-bit atomics.
-- **`sdkconfig.defaults`** — dropped the SPIRAM toggle block. The
+  needed beyond what the no-psram graph already does for 64-bit atomics.
+- **`sdkconfig.defaults`** — dropped the PSRAM toggle block. The
   `CONFIG_ESP32_SPIRAM_*` symbols are ESP32-only and don't exist for the C6 (no
   PSRAM interface). Everything else (WiFi/lwIP/stack cuts) is chip-independent and
   carries over unchanged.
@@ -54,7 +54,7 @@ ticket to the [`client`](../client/README.md) to dial it (use the **long** ticke
 ## Memory tuning
 
 The knobs are identical to the bare ESP32 and the rationale carries over verbatim
-— see [`server-esp32-no-spiram`](../server-esp32-no-spiram/README.md#memory-tuning)
+— see [`server-esp32`](../server-esp32/README.md#memory-tuning)
 for the full writeup. In short: shrunk QUIC windows, relay/discovery removed, no
 TLS resumption cache, a 1 KiB stack echo buffer, a 40 KiB main task stack, WiFi
 static buffers cut to 4/4 with AMPDU off, trimmed lwIP pools, IPv6 off, and

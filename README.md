@@ -1,58 +1,51 @@
 # Example projects for using iroh on an ESP32
 
-This repository contains several completely separate Rust projects (no Cargo workspace):
+This repository contains several completely separate Rust projects (no Cargo
+workspace). Each is one **server** variant — an iroh echo endpoint for a specific
+ESP32 — plus two **clients** to dial them.
 
-- [`server-esp32-spiram/`](server-esp32-spiram/README.md) — ESP32 endpoint project for boards with SPIRAM (using custom iroh branch)
-- [`server-esp32-s3/`](server-esp32-s3/README.md) — ESP32-S3 endpoint project tuned to run without SPIRAM
-- [`server-esp32-no-spiram/`](server-esp32-no-spiram/README.md) — bare ESP32 (LX6) endpoint project tuned to run without SPIRAM
-- [`server-esp32-s3-relay/`](server-esp32-s3-relay/README.md) — ESP32-S3 endpoint reachable only via a relay, no direct IP (experimental)
-- [`server-esp32-spiram-mdns/`](server-esp32-spiram-mdns/README.md) — SPIRAM endpoint adding mDNS local (LAN) discovery alongside relay + pkarr (experimental)
-- [`client/`](client/README.md) — Desktop test client (published crates.io iroh)
+## Servers (one per hardware variant)
 
-Each directory has its own `Cargo.toml` and lockfile, and its own README with
-detailed build and run instructions.
+Each keeps the largest configuration that runs *reliably* on that board:
+
+- [`server-esp32-psram/`](server-esp32-psram/README.md) — ESP32-WROVER / M5StickC
+  **with PSRAM**. The only variant with enough RAM for **relay + pkarr discovery**
+  (custom iroh branch).
+- [`server-esp32/`](server-esp32/README.md) — bare ESP32 (LX6),
+  no PSRAM. LAN-direct echo (relay doesn't fit without PSRAM).
+- [`server-esp32-s3/`](server-esp32-s3/README.md) — ESP32-S3, no PSRAM. LAN-direct.
+- [`server-esp32-c6/`](server-esp32-c6/README.md) — ESP32-C6, the **RISC-V** variant
+  (`riscv32imac-esp-espidf`), no PSRAM. LAN-direct.
+
+## Clients
+
+- [`client/`](client/README.md) — desktop CLI client (stock crates.io iroh + `ring`).
+- [`wasm-gui/`](wasm-gui/README.md) — browser echo client (Rust → WebAssembly).
+  Relay-only, so it talks to the PSRAM server.
+
+Each directory has its own `Cargo.toml`, lockfile, and README with build/run
+instructions.
 
 ## Hardware variants
 
-| [![M5StickC PLUS2](images/m5stickc-plus2.jpg)](server-esp32-spiram/README.md) | [![Bare ESP32 (LX6)](images/esp32.jpg)](server-esp32-no-spiram/README.md) | [![Bare ESP32-S3](images/esp32-s3.jpg)](server-esp32-s3/README.md) |
-| :---: | :---: | :---: |
-| **M5StickC PLUS2 / ESP32-WROVER**<br>(with SPIRAM) | **Bare ESP32** (LX6)<br>(no SPIRAM) | **Bare ESP32-S3**<br>(no SPIRAM) |
-| [`server-esp32-spiram/`](server-esp32-spiram/README.md) | [`server-esp32-no-spiram/`](server-esp32-no-spiram/README.md) | [`server-esp32-s3/`](server-esp32-s3/README.md) |
+| [![M5StickC PLUS2](images/m5stickc-plus2.jpg)](server-esp32-psram/README.md) | [![Bare ESP32 (LX6)](images/esp32.jpg)](server-esp32/README.md) | [![Bare ESP32-S3](images/esp32-s3.jpg)](server-esp32-s3/README.md) | [![ESP32-C6-DevKitC-1](images/esp32-c6.png)](server-esp32-c6/README.md) |
+| :---: | :---: | :---: | :---: |
+| **M5StickC PLUS2 / ESP32-WROVER**<br>(with PSRAM) | **Bare ESP32** (LX6)<br>(no PSRAM) | **Bare ESP32-S3**<br>(no PSRAM) | **ESP32-C6**<br>(RISC-V, no PSRAM) |
+| [`server-esp32-psram/`](server-esp32-psram/README.md) | [`server-esp32/`](server-esp32/README.md) | [`server-esp32-s3/`](server-esp32-s3/README.md) | [`server-esp32-c6/`](server-esp32-c6/README.md) |
 
 ## Which server variant?
 
-- Board has SPIRAM (e.g. an ESP32-WROVER, or the M5StickC PLUS2)? Use
-  [`server-esp32-spiram/`](server-esp32-spiram/README.md).
-- Bare ESP32 (LX6) without SPIRAM? Use
-  [`server-esp32-no-spiram/`](server-esp32-no-spiram/README.md).
-- Bare ESP32-S3 without SPIRAM? Use
-  [`server-esp32-s3/`](server-esp32-s3/README.md).
-- Want the S3 reachable through a relay instead of direct on the LAN
-  (experimental)? Use [`server-esp32-s3-relay/`](server-esp32-s3-relay/README.md).
-- Have SPIRAM and want LAN discovery by node ID (short ticket) over mDNS in
-  addition to the relay + pkarr path (experimental)? Use
-  [`server-esp32-spiram-mdns/`](server-esp32-spiram-mdns/README.md).
+- Board has PSRAM (ESP32-WROVER, M5StickC PLUS2)? Use
+  [`server-esp32-psram/`](server-esp32-psram/README.md) — the only one that gets
+  relay + discovery (internet-wide reachability).
+- Bare ESP32 (LX6)? Use [`server-esp32/`](server-esp32/README.md).
+- Bare ESP32-S3? Use [`server-esp32-s3/`](server-esp32-s3/README.md).
+- ESP32-C6 (RISC-V)? Use [`server-esp32-c6/`](server-esp32-c6/README.md).
 
-Run the [`client/`](client/README.md) on a desktop computer to dial whichever
-server you flashed.
+The no-PSRAM boards are **LAN-direct only**: dial them with the long ticket (which
+carries the IP), from the same network. Relay and pkarr discovery need the RAM
+headroom that only PSRAM provides — see the PSRAM variant.
 
-## TODO: RISC-V variant (ESP32-C6)
-
-All current variants are Xtensa (ESP32 LX6, ESP32-S3). The natural next target is
-a **RISC-V** one — and the only really plausible single-chip candidate is the
-**ESP32-C6** (`riscv32imac-esp-espidf`):
-
-- It has WiFi (WiFi 6) on-chip and 512 KB of HP SRAM — the most RAM of the
-  no-PSRAM RISC-V parts, so it has a fighting chance of fitting iroh, much like
-  the [`server-esp32-s3`](server-esp32-s3/README.md).
-- The other RISC-V ESP32s don't fit the bill: the ESP32-C3 is tighter (~400 KB),
-  the C2 is smaller still, the H2 has no WiFi, and while the ESP32-P4 has the
-  most RAM (and PSRAM), it has **no built-in WiFi** (needs a companion radio).
-
-It would most likely reuse the no-SPIRAM tuning from the `server-esp32-s3` /
-`server-esp32-no-spiram` projects. Not done yet for the simple reason that there isn't
-an ESP32-C6 board lying around to test on.
-
-## Image credits
-
-See [`images/CREDITS.md`](images/CREDITS.md) for image sources and licenses.
+Run the [`client/`](client/README.md) on a desktop to dial whichever server you
+flashed (or the [`wasm-gui/`](wasm-gui/README.md) in a browser, against the PSRAM
+server).

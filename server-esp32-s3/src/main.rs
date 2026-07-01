@@ -211,7 +211,7 @@ fn main() {
         // internet throughput (MB-scale per connection) — on a ~512 KB-SRAM ESP32
         // the first stream's receive buffer alone would OOM. Shrink hard: one bidi
         // stream (echo only), tiny windows, no datagrams. Chip-independent and
-        // SPIRAM-safe (it only caps throughput), so it belongs on every target.
+        // PSRAM-safe (it only caps throughput), so it belongs on every target.
         // The 64 KiB-scale defaults are absurd for a 1 KiB-chunk echo; 32 KiB
         // connection windows still leave generous in-flight headroom (the bare
         // LX6 goes far lower — see esp32-no-spiram) while shrinking the contiguous
@@ -249,7 +249,7 @@ fn main() {
             // App-side builder option, no iroh patch. (A few-byte cache struct still
             // exists; removing that, and the server-side cache, needs an iroh patch.)
             .max_tls_tickets(0)
-            // no-spiram: bare direct-QUIC. Relay + pkarr discovery ripped out —
+            // no-psram: bare direct-QUIC. Relay + pkarr discovery ripped out —
             // the heap hogs were the relay reportgen/QAD probing (4 relays) and
             // the pkarr reqwest clients. Dial via the LONG ticket (IP+port);
             // LAN-direct only: no NAT traversal, no discovery.
@@ -271,9 +271,9 @@ fn main() {
 
         let endpoint = builder.bind().await.expect("unable to bind endpoint");
 
-        // no-spiram instrumentation: idle heap baseline right after bind. `free`
+        // no-psram instrumentation: idle heap baseline right after bind. `free`
         // is total 8-bit-capable heap; `largest_8bit` is the biggest contiguous
-        // block (what actually limits a single allocation). SPIRAM-safe — stays
+        // block (what actually limits a single allocation). PSRAM-safe — stays
         // on both branches.
         info!(
             "[heap] after bind: free={} largest_8bit={}",
@@ -292,9 +292,8 @@ fn main() {
             .map(|s| s.port())
             .expect("no bound socket");
 
-        // Short ticket: just the endpoint ID (no addresses)
-        let short_ticket = EndpointTicket::new(iroh::EndpointAddr::new(endpoint_id));
-
+        // No short ticket: this variant is LAN-direct (no relay/discovery), so a
+        // bare endpoint ID can't be resolved — only the long ticket (with IP) works.
         // Long ticket: includes WiFi IP + bound port
         let mut addr_with_ip = endpoint.addr();
         addr_with_ip
@@ -310,7 +309,6 @@ fn main() {
         info!("Iroh endpoint bound");
         info!("  Listening on: {wifi_ip}:{port}");
         info!("  Endpoint ID: {endpoint_id}");
-        info!("  Short ticket: {short_ticket}");
         info!("  Long ticket:  {long_ticket}");
 
         info!("Router started, accepting connections");

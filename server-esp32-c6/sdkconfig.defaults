@@ -12,8 +12,8 @@ CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
 # So bump to 48KB here — that restores a healthy ~10KB margin on the C6. (The LX6/S3
 # stay at 40960; this larger value is a RISC-V-specific divergence.) If a deeper path
 # ever exceeds this, the stack-overflow watchpoint (below) traps it cleanly.
-# SPIRAM-RISKY: the relay/pkarr (reqwest/hyper) path needs more — gate before
-# re-enabling SPIRAM.
+# PSRAM-RISKY: the relay/pkarr (reqwest/hyper) path needs more — gate before
+# re-enabling PSRAM.
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=49152
 
 # Use this to set FreeRTOS kernel tick frequency to 1000 Hz (100 Hz by default).
@@ -25,7 +25,7 @@ CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
 CONFIG_MBEDTLS_TLS_ENABLED=n
 
-# NOTE: no SPIRAM toggle here. The ESP32-C6 has no PSRAM interface, so the
+# NOTE: no PSRAM toggle here. The ESP32-C6 has no PSRAM interface, so the
 # `CONFIG_ESP32_SPIRAM_*` / `CONFIG_SPIRAM_*` symbols simply don't exist for this
 # chip — heap and all task stacks must fit in the ~512 KB internal SRAM, which is
 # exactly what the stack/buffer cuts above and below are sized for.
@@ -37,7 +37,7 @@ CONFIG_MBEDTLS_TLS_ENABLED=n
 # AGGRESSIVE (bare-LX6 only): static buffers are PRE-ALLOCATED (~1.6 KB each), so
 # they hit the idle baseline directly — unlike the dynamic pool, which only grows
 # under load. This is the biggest remaining baseline lever. Cut to the functional
-# floor and let the deterministic ESP silicon prove it out; the S3/SPIRAM targets
+# floor and let the deterministic ESP silicon prove it out; the S3/PSRAM targets
 # keep the conservative defaults. Static RX 10→4 (~9.6 KB) + static TX 8→4
 # (~6.4 KB) ≈ 16 KB reclaimed. Cost: lower WiFi throughput / more retransmits —
 # irrelevant for an echo.
@@ -52,7 +52,7 @@ CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=8
 CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=n
 CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=n
 
-# no-spiram: shrink lwIP buffers. Relay + pkarr are gone, so there is NO TCP
+# no-psram: shrink lwIP buffers. Relay + pkarr are gone, so there is NO TCP
 # traffic anymore (QUIC/SNTP/DNS are all UDP) — TCP windows never allocate, but
 # we floor them for hygiene. The real reclaim is the static pools (sockets/PCBs/
 # mboxes), which cost upfront heap. UDP mbox kept moderate so QUIC rx bursts

@@ -11,7 +11,7 @@ back. Paste a ticket, type a message, hit **send echo**.
 
 > Browsers can't open UDP/QUIC sockets, so this endpoint is **relay-only**. The
 > ticket you paste must carry a relay URL — i.e. come from a relay-capable
-> (**PSRAM**) ESP32 variant, not the bare-metal / no-SPIRAM ones.
+> (**PSRAM**) ESP32 variant, not the bare-metal / no-PSRAM ones.
 
 The structure mirrors the
 [`browser-echo`](https://github.com/n0-computer/iroh-examples/tree/main/browser-echo)
@@ -20,7 +20,7 @@ example from iroh-examples.
 > Browsers can't open raw UDP/QUIC sockets, so the wasm iroh endpoint will reach
 > peers exclusively over a relay. That means it interoperates only with the ESP32
 > variants that have a relay connection — i.e. the **PSRAM** boards, not the
-> bare-metal / no-SPIRAM ones.
+> bare-metal / no-PSRAM ones.
 
 ## Layout
 
