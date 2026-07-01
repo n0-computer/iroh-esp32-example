@@ -1280,25 +1280,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "esp32-blog-post"
-version = "0.1.0"
-dependencies = [
- "aes",
- "aes-gcm",
- "embuild",
- "esp-idf-svc",
- "iroh",
- "iroh-relay",
- "iroh-tickets",
- "log",
- "n0-error",
- "n0-future",
- "rustls",
- "rustls-rustcrypto",
- "tokio",
-]
-
-[[package]]
 name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3609,6 +3590,25 @@ checksum = "66cf8fedced2fcf12406bcb34223dffb92eaf34908ede12fed414c82b7f00b3e"
 dependencies = [
  "base16ct 1.0.0",
  "serde",
+]
+
+[[package]]
+name = "server-esp32-psram"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "aes-gcm",
+ "embuild",
+ "esp-idf-svc",
+ "iroh",
+ "iroh-relay",
+ "iroh-tickets",
+ "log",
+ "n0-error",
+ "n0-future",
+ "rustls",
+ "rustls-rustcrypto",
+ "tokio",
 ]
 
 [[package]]

@@ -1,0 +1,43 @@
+[package]
+name = "wasm-gui"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Browser GUI (Rust + WebAssembly) embedding an iroh endpoint (relay-only)"
+
+# cdylib: the wasm artifact loaded by the browser. rlib: lets the crate also be
+# used as a normal Rust dependency / tested natively later.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Pinned to the installed `wasm-bindgen` CLI (0.2.126). The crate and CLI versions
+# MUST match exactly or the generated JS bindings are rejected at load time.
+# (iroh 1.0's netwatch needs js-sys >=0.3.83, which requires this newer line.)
+wasm-bindgen = "=0.2.126"
+# Bridges Rust `async fn` exports to JS Promises (needed for `Node::spawn`).
+# Left unpinned so js-sys can resolve to the version netwatch requires.
+wasm-bindgen-futures = "0.4"
+# Routes Rust panics to console.error with a readable message + stack.
+console_error_panic_hook = "0.1.7"
+# iroh in the browser: ring TLS works on wasm32 (unlike the xtensa ESP32 targets).
+# Browsers can't open UDP/QUIC sockets, so this endpoint reaches peers via a relay.
+iroh = { version = "1.0.0", default-features = false, features = ["tls-ring"] }
+# Endpoint tickets — the same string the CLI client and ESP32 servers use. Carries
+# the relay URL, which is how the relay-only browser reaches a PSRAM ESP32.
+iroh-tickets = "1.0.0"
+# `js_sys::Promise` for returning the connect future to JS (see Node::connect).
+js-sys = "0.3"
+# wasm32 has no OS RNG; route getrandom to the JS crypto API (see .cargo/config.toml).
+getrandom = { version = "0.3", features = ["wasm_js"] }
+# Surface iroh's logs (incl. relay connection) in the browser console.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber-wasm = "0.1.0"
+
+[profile.release]
+opt-level = "z"   # optimize for size — wasm ships over the wire
+lto = true
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
