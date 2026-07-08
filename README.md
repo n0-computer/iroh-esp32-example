@@ -61,3 +61,17 @@ headroom that only PSRAM provides — see the PSRAM variants.
 Run the [`client/`](client/README.md) on a desktop to dial whichever server you
 flashed (or the [`wasm-gui/`](wasm-gui/README.md) in a browser, against the PSRAM
 server).
+
+## Limitations
+
+There are a very large number of ESP32 variants out there. We tried to cover the most important variants in the server projects. Here is some general advice to get iroh to run on *your* board.
+
+We do support both CPU architectures, XTensa for ESP32 and ESP32-S3, RISC-V for ESP32-C* and ESP32-P*. For Xtensa you will need a special tool chain, RISC-V is supported out of the box by rust.
+
+### Flash size
+
+If your board has a flash memory size of less than 8 MiB, you will need a special branch of iroh with reduced dependencies for now.
+
+### PSRAM
+
+If your board does not come with PSRAM, you will need to disable the relay connection and can only dial the endpoint with long tickets containing an IP address. You will also need to tweak QUIC buffers.

@@ -1,9 +1,16 @@
-# Tokio current_thread runtime runs all async tasks on this single stack.
-# Was 112KB for hickory; hickory is gone, so we reclaim this for the no-psram
-# heap. 48KB probe (down from 64KB) to clear the ~5KB we were short at connection
-# setup. If the bare direct-QUIC handshake needs more, the stack-overflow
-# watchpoint (below) traps it cleanly (distinct from a heap OOM). PSRAM-RISKY:
-# the relay/pkarr (reqwest/hyper) path needs more — gate before re-enabling PSRAM.
+# Flash size floor. This example uses PUBLISHED iroh (main + hickory-resolver
+# compiled in, though src/std_dns_resolver.rs swaps hickory out at runtime), so the
+# app is ~4.0 MB and needs ≥8 MB flash — a 4 MB S3 (N4) won't fit; 8 MB (N8) does.
+# The relay/discovery machinery is compiled too but stays dormant: this build is
+# LAN-direct (RelayMode::Disabled) to fit the no-PSRAM 512 KB internal SRAM.
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
+
+# Tokio current_thread runtime runs all async tasks on this single stack. hickory is
+# compiled but never runs (the StdDnsResolver override), so the DNS path is the
+# platform getaddrinfo, not hickory's ~111 KB async parsing — 48 KB clears the
+# LAN-direct QUIC/TLS handshake. If a deeper path ever exceeds this, the stack-
+# overflow watchpoint (below) traps it cleanly (distinct from a heap OOM).
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=49152
 
 # Use this to set FreeRTOS kernel tick frequency to 1000 Hz (100 Hz by default).

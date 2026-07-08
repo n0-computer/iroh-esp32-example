@@ -1,7 +1,15 @@
-# Tokio current_thread runtime runs everything on this single stack.
-# 112KB is needed because hickory-resolver's async DNS parsing creates deeply
-# nested futures that consume ~111KB of stack with opt-level "z" (no inlining).
-# This stack lives in internal SRAM, not PSRAM, so it can't grow much further.
+# Flash size floor. This example uses PUBLISHED iroh (main + hickory-resolver
+# compiled in, even though src/std_dns_resolver.rs swaps hickory out at runtime),
+# so the app is ~4.35 MB — it does NOT fit a 4 MB board (N4R2/N4R8). Needs ≥8 MB;
+# 8 MB is the floor and also covers N8R2/N8R8. Bump to 16MB on an N16R8 if you like.
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
+
+# Tokio current_thread runtime runs everything on this single stack. 112 KB is a
+# holdover from when hickory-resolver ran the DNS (its async parsing needs ~111 KB
+# of stack at opt-level "z"); with the src/std_dns_resolver.rs override hickory
+# never runs, so this is over-provisioned — but the S3's 512 KB SRAM has room, so
+# it's kept as headroom. This stack lives in internal SRAM, not PSRAM.
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=114688
 
 # Use this to set FreeRTOS kernel tick frequency to 1000 Hz (100 Hz by default).
