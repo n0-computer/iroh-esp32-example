@@ -24,6 +24,13 @@ Each keeps the largest configuration that runs *reliably* on that board:
   (dialable across networks), tuned to fit the C61's tighter internal SRAM — small
   buffers + a 96 KB stack (see its README). Needs newer tooling (ESP-IDF v5.5.2+,
   esp-idf-svc 0.52, espflash 4.4).
+- [`server-esp32-p4/`](server-esp32-p4/README.md) — ESP32-P4, the big dual-core
+  **RISC-V** application chip (`riscv32imafc-esp-espidf` — it has an FPU), 768 KB
+  SRAM, **no radio at all**. Runs the echo server anyway and proves it with an
+  on-chip **loopback self-test**: a second iroh endpoint dials the server over
+  `127.0.0.1` — full QUIC/TLS stack, zero network hardware. Same newer tooling
+  as the C61. **Getting-started only, not a usable node** — with no
+  connectivity wired up, nothing can dial it (see its README's warning).
 
 ## Clients
 
@@ -53,6 +60,9 @@ instructions.
 - Bare ESP32 (LX6)? Use [`server-esp32/`](server-esp32/README.md).
 - Bare ESP32-S3? Use [`server-esp32-s3/`](server-esp32-s3/README.md).
 - ESP32-C6 (RISC-V)? Use [`server-esp32-c6/`](server-esp32-c6/README.md).
+- ESP32-P4 (RISC-V, no radio)? Use [`server-esp32-p4/`](server-esp32-p4/README.md) —
+  loopback self-test only, until the board grows a netif (Ethernet PHY or an
+  ESP-Hosted companion chip).
 
 The no-PSRAM boards are **LAN-direct only**: dial them with the long ticket (which
 carries the IP), from the same network. Relay and pkarr discovery need the RAM

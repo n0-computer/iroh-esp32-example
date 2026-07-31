@@ -1,0 +1,76 @@
+# Flash size — pin it explicitly. ESP-IDF defaults to 2 MB; if the board is larger
+# the auto-generated partition table can land wrong, which shows up as an MMU
+# alignment assert in `mmu_hal_map_region` while loading the partition table at
+# boot. P4 modules typically carry 16 MB flash; 4 MB is safe on any of them
+# (under-reporting is fine; over-reporting is not) and the slim app fits.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+# Minimum supported chip revision: v1.0. ESP-IDF v5.5.4's DEFAULT for the P4 is
+# v3.01, and this is not a benign compatibility knob — it changes the MEMORY
+# LAYOUT. Chips >= v3.0 drop the ROM shared-buffer reservation, so the app links
+# with SRAM up to 0x4FFAEFC0; the 2nd-stage bootloader, however, sits at
+# 0x4FF2CBD0 (rev<3 layout). On a rev v1.x chip the default therefore produces
+# an app whose IRAM/data segments the bootloader copies OVER ITS OWN loader code
+# → "Guru Meditation Error: Illegal instruction" boot loop right after the last
+# "esp_image: segment N" line, before a single app log line. Dev boards in the
+# wild (2026) are rev v1.x, so pin v1.0 here. Both lines are needed:
+# REV_MIN_100 `depends on` SELECTS_REV_LESS_V3, and without the gate set the
+# kconfig tooling drops the REV_MIN line SILENTLY and keeps the v3.01 default.
+CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
+CONFIG_ESP32P4_REV_MIN_100=y
+
+# Tokio current_thread runtime runs all async tasks on this single stack, so it
+# has to hold the deepest path. Here that's the loopback self-test: a client
+# endpoint's QUIC/TLS handshake nested against the server accept path on the
+# SAME stack. The C61 needed 96 KB for its relay path; keep the same number —
+# the P4 has 768 KB of internal SRAM, so unlike the C61 this is not scarce.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=98304
+
+# We use rustls, not mbedtls - disable to save RAM and flash
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
+CONFIG_MBEDTLS_TLS_ENABLED=n
+
+# PSRAM. Most P4 modules have it IN-PACKAGE (ESP32-P4NRW16/NRW32: 16/32 MB) —
+# but not all (plain ESP32-P4 has none). Enable it, but with IGNORE_NOTFOUND so
+# a PSRAM-less board still boots on its 768 KB internal SRAM (which is plenty
+# for this relay-less build) instead of aborting in the bootloader.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_IGNORE_NOTFOUND=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=0
+CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=0
+# Allow task stacks in PSRAM — frees internal SRAM for FreeRTOS/lwIP.
+CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y
+
+# NO WiFi symbols here: the P4 has no radio, and the CONFIG_ESP_WIFI_* symbols
+# don't exist for this chip. lwIP still runs — the loopback self-test goes
+# through it via 127.0.0.1.
+CONFIG_LWIP_NETIF_LOOPBACK=y
+
+# lwIP buffers — small. No relay/pkarr → no TCP: QUIC is all UDP. Floor the TCP
+# windows for hygiene; keep the UDP mbox moderate — the loopback self-test has
+# TWO endpoints bursting through the same stack, so don't starve it.
+CONFIG_LWIP_UDP_RECVMBOX_SIZE=16
+CONFIG_LWIP_TCP_SND_BUF_DEFAULT=2880
+CONFIG_LWIP_TCP_WND_DEFAULT=2880
+CONFIG_LWIP_TCPIP_RECVMBOX_SIZE=8
+CONFIG_LWIP_TCPIP_TASK_STACK_SIZE=4096
+CONFIG_LWIP_MAX_UDP_PCBS=8
+CONFIG_LWIP_MAX_SOCKETS=8
+
+# IPv6 off: the self-test is IPv4 loopback. iroh handles the v6 bind failure
+# gracefully ("ignoring non required bind failure").
+CONFIG_LWIP_IPV6=n
+
+# Use the ROM's nano printf/scanf: smaller formatting code AND a lower stack
+# footprint on the format path.
+CONFIG_NEWLIB_NANO_FORMAT=y
+
+# Restore colored log output. ESP-IDF flipped CONFIG_LOG_COLORS to default-off
+# between v5.3 and v5.5. Turn it back on.
+CONFIG_LOG_COLORS=y
+
+# Detect stack overflow via hardware watchpoint (uses 1 of 2 debug watchpoints)
+CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK=y

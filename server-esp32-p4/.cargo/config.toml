@@ -1,0 +1,25 @@
+[build]
+# ESP32-P4: dual-core 32-bit RISC-V (RV32IMAFC — unlike the C6/C61's imac it has
+# the `f` single-precision FPU, so it gets its own rust target). Keep MCU in
+# [env] below in sync with this target.
+target = "riscv32imafc-esp-espidf"
+
+[target.riscv32imafc-esp-espidf]
+linker = "ldproxy"
+runner = "espflash flash --monitor"
+rustflags = [ "--cfg",  "espidf_time64"]
+
+[unstable]
+build-std = ["std", "panic_abort"]
+# SHIPPING-BUILD OPTION: for `panic = "immediate-abort"` (see Cargo.toml), use
+# build-std = ["std"] instead (immediate-abort needs no panic_abort runtime).
+# Build std/core/alloc with size-first codegen. Behavior-neutral; ~181 KB off
+# .flash.text. Keep this on.
+build-std-features = ["optimize_for_size"]
+
+[env]
+MCU="esp32p4"
+# Note: this variable is not used by the pio builder (`cargo build --features pio`)
+# The P4 has been a stable ESP-IDF target since v5.3; pin the same v5.5 patch as
+# the C61 so the two newest-tooling variants stay on one IDF version.
+ESP_IDF_VERSION = "v5.5.4"
