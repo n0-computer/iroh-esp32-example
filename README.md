@@ -26,11 +26,11 @@ Each keeps the largest configuration that runs *reliably* on that board:
   esp-idf-svc 0.52, espflash 4.4).
 - [`server-esp32-p4/`](server-esp32-p4/README.md) — ESP32-P4, the big dual-core
   **RISC-V** application chip (`riscv32imafc-esp-espidf` — it has an FPU), 768 KB
-  SRAM, **no radio at all**. Runs the echo server anyway and proves it with an
-  on-chip **loopback self-test**: a second iroh endpoint dials the server over
-  `127.0.0.1` — full QUIC/TLS stack, zero network hardware. Same newer tooling
-  as the C61. **Getting-started only, not a usable node** — with no
-  connectivity wired up, nothing can dial it (see its README's warning).
+  SRAM, 32 MB in-package PSRAM — and **no radio of its own**: WiFi comes from
+  the board's **ESP32-C6 companion** over SDIO (ESP-Hosted + `esp_wifi_remote`,
+  transparent to the code). Runs the **full relay + pkarr discovery** build —
+  the roomiest iroh node in this repo. Tested on a Waveshare ESP32-P4-NANO.
+  Same newer tooling as the C61; mind its README's **chip-revision trap**.
 
 ## Clients
 
@@ -60,9 +60,9 @@ instructions.
 - Bare ESP32 (LX6)? Use [`server-esp32/`](server-esp32/README.md).
 - Bare ESP32-S3? Use [`server-esp32-s3/`](server-esp32-s3/README.md).
 - ESP32-C6 (RISC-V)? Use [`server-esp32-c6/`](server-esp32-c6/README.md).
-- ESP32-P4 (RISC-V, no radio)? Use [`server-esp32-p4/`](server-esp32-p4/README.md) —
-  loopback self-test only, until the board grows a netif (Ethernet PHY or an
-  ESP-Hosted companion chip).
+- ESP32-P4 (RISC-V, no radio) on a board with an ESP32-C6 companion (e.g.
+  Waveshare P4-NANO)? Use [`server-esp32-p4/`](server-esp32-p4/README.md) —
+  relay + discovery, WiFi via ESP-Hosted.
 
 The no-PSRAM boards are **LAN-direct only**: dial them with the long ticket (which
 carries the IP), from the same network. Relay and pkarr discovery need the RAM

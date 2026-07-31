@@ -1,14 +1,4 @@
-# iroh on an ESP32-P4 (RISC-V, no radio — loopback self-test)
-
-> [!WARNING]
-> **This variant is a starting point, not a usable iroh node.** The ESP32-P4 has
-> no radio, and this project wires up **no connectivity at all** — the endpoint
-> talks only to itself over `127.0.0.1`. Nothing can dial it, and it can dial
-> nothing. It exists to prove the iroh stack builds and runs on P4 silicon
-> (toolchain, QUIC, TLS, echo — all exercised by the on-chip loopback
-> self-test), as groundwork for a real transport later (Ethernet PHY,
-> ESP-Hosted). If you want an ESP32 iroh node you can actually dial today, use
-> one of the WiFi variants in this repo instead.
+# iroh on an ESP32-P4 (RISC-V, WiFi via an ESP32-C6 companion, relay + discovery)
 
 An iroh endpoint running on an ESP32-P4 — Espressif's big dual-core 32-bit
 **RISC-V** (RV32IMAFC, 400 MHz) application chip with **768 KB internal SRAM**
@@ -16,48 +6,43 @@ and (on most modules, in-package) 16/32 MB PSRAM. It targets
 `riscv32imafc-esp-espidf` — its own rust target, because unlike the C6/C61
 (RV32IMAC) the P4 has a single-precision FPU.
 
-The catch: the P4 has **no radio at all** — no WiFi, no Bluetooth. So how do you
-test a networking library on it?
+The catch: the P4 itself has **no radio at all** — no WiFi, no Bluetooth. Boards
+solve this with a companion chip: this project was built and tested on a
+Waveshare **ESP32-P4-NANO**, which pairs the P4 with an **ESP32-C6-MINI-1**
+module (the metal can on the back) over SDIO. The C6 runs Espressif's
+**ESP-Hosted** slave firmware (factory-flashed) and acts as a WiFi 6 network
+card; the `esp_wifi_remote` + `esp_hosted` components on our side proxy the
+standard `esp_wifi_*` API to it. `esp-idf-hal`/`esp-idf-svc` detect those
+components and light up the normal `Modem` peripheral + `EspWifi` wrapper — so
+[`src/main.rs`](src/main.rs) looks almost exactly like the native-WiFi variants.
 
-**By dialing ourselves.** On startup the firmware binds the usual iroh echo
-server, then brings up a *second* iroh endpoint on the same chip and dials the
-server over `127.0.0.1` through lwIP's loopback netif. That exercises the entire
-iroh stack — UDP sockets, QUIC, the TLS handshake with the pure-Rust
-`rustls-rustcrypto` provider, stream open, echo, clean close — everything except
-a physical network:
+With WiFi up, the P4 runs the **full relay + pkarr discovery** build (like the
+C61/S3/ESP32 PSRAM targets) — reachable across networks via the short ticket.
+With 32 MB of in-package PSRAM it is by far the roomiest chip in this repo
+(`heap free=33.7 MB` after boot; verified on a rev v1.3 chip, 16 MB flash).
 
-```
-I (…) server_esp32_p4: [self-test] dialing 127.0.0.1:…
-I (…) server_esp32_p4: Accepted connection from … [heap free=33729124 largest_8bit=33030144]
-I (…) server_esp32_p4: [self-test] PASSED: 57 bytes echoed over QUIC via loopback
-```
-
-(Verified on real hardware: an ESP32-P4 **rev v1.3** with 16 MB flash and 32 MB
-in-package PSRAM — the `heap free=33.7 MB` above is that PSRAM. On a P4, "no
-memory chips on the board" means nothing: flash is a tiny part on the PCB back
-and PSRAM is inside the chip package; `ESP32-P4NRW16/NRW32` markings mean 16/32 MB.)
-
-No `WIFI_CONFIG` needed — the build takes no credentials.
+> If your P4 board has no companion radio chip, this variant won't get online —
+> but iroh itself still runs: an earlier loopback-only revision of this project
+> (see git history) proved the full QUIC/TLS stack against itself over
+> `127.0.0.1` with zero network hardware.
 
 ## What changed from the C61
 
-Based on [`server-esp32-c61-psram`](../server-esp32-c61-psram/README.md) (the
-other newest-tooling RISC-V variant; same ESP-IDF v5.5.4, esp-idf-svc 0.52,
-espflash 4.4+):
+Based on [`server-esp32-c61-psram`](../server-esp32-c61-psram/README.md) (same
+ESP-IDF v5.5.4, esp-idf-svc 0.52, espflash 4.4+):
 
 - **`.cargo/config.toml`** — target `riscv32imafc-esp-espidf` (FPU), `MCU=esp32p4`.
-- **`src/main.rs`** — WiFi is *gone*, replaced by a bare `esp_netif_init()` (just
-  to start lwIP's tcpip thread and its loopback netif). SNTP is gone too: there
-  is no network to sync from, and nothing needs the clock — peer-to-peer iroh
-  TLS uses raw public keys, and with `RelayMode::Disabled` there's no web-PKI
-  connection either. Relay and pkarr discovery are off (no route to reach them);
-  the new `loopback_self_test` dials the echo server from a second endpoint.
-- **`sdkconfig.defaults`** — all `CONFIG_ESP_WIFI_*` symbols removed (they don't
-  exist for this chip). `CONFIG_LWIP_NETIF_LOOPBACK=y` made explicit. PSRAM on,
-  but with `CONFIG_SPIRAM_IGNORE_NOTFOUND=y` so a PSRAM-less P4 still boots —
-  768 KB internal SRAM is plenty for this relay-less build. Main-task stack
-  stays 96 KB: the self-test nests both sides of the QUIC/TLS handshake on the
-  one tokio `current_thread` stack (measured high-water: ~50 KB used).
+- **`Cargo.toml`** — two extra managed components for esp-idf-sys:
+  `espressif/esp_wifi_remote` and `espressif/esp_hosted`. That's the entire
+  WiFi-through-a-companion-chip story; the ESP-Hosted defaults already match
+  the board's wiring (SDIO CLK 18, CMD 19, D0–D3 14–17, C6 reset GPIO 54).
+- **`src/main.rs`** — WiFi connect code is unchanged from the C61. New: tokio +
+  iroh run on a **thread with a 96 KB PSRAM stack** (see below) instead of the
+  main task.
+- **`sdkconfig.defaults`** — the chip-revision pin (see the trap below), PSRAM
+  with `IGNORE_NOTFOUND`, a small (24 KB) main-task stack, ESP-Hosted's
+  mempool moved to PSRAM, and no WiFi buffer tuning at all — the buffers live
+  on the C6, and the P4 side has RAM to spare.
 
 ## The chip-revision trap (read this if you get an illegal-instruction boot loop)
 
@@ -91,6 +76,32 @@ built tree, delete the generated config first
 sdkconfig.defaults` — defaults are only applied when the generated sdkconfig is
 created fresh.
 
+## Internal SRAM: why the tokio stack lives in PSRAM
+
+The 768 KB of internal SRAM is less than it sounds on a rev v1.x chip: 128 KB
+goes to L2 cache, ~79 KB is reserved for ROM data + the bootloader loader
+region (the rev<3 layout), and the rest is split into a **~183 KB low region**
+(where static data lands) and a high window. With `esp_hosted` +
+`esp_wifi_remote` linked in, static data eats ~100 KB of the low region — and a
+96 KB *internal* main-task stack no longer fits: boot dies in
+`esp_startup_start_app` with `assert failed: … (res == pdTRUE)` (FreeRTOS
+couldn't allocate the main task).
+
+So this variant uses the escape hatch the C61 README only described:
+
+- `CONFIG_ESP_MAIN_TASK_STACK_SIZE=24576` — the main task only does init +
+  WiFi connect + thread spawn.
+- tokio + the whole iroh stack run on a thread whose **96 KB stack is
+  allocated in PSRAM** (`ThreadSpawnConfiguration { stack_alloc_caps:
+  Spiram | Cap8bit }`, legal because
+  `CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y`).
+- The one rule for PSRAM stacks: the thread must never run cache-disabling
+  flash ops (NVS/flash writes, OTA). NVS + WiFi init happen on the main task
+  before the spawn; the iroh path does no flash writes.
+- ESP-Hosted's buffer mempool also goes to PSRAM
+  (`CONFIG_ESP_HOSTED_MEMPOOL_PREFER_SPIRAM=y`) — internal SRAM is left for
+  FreeRTOS objects and SDIO DMA, the things that genuinely need it.
+
 ## Build / run
 
 The P4 has a built-in USB Serial/JTAG peripheral — flash over that port (the
@@ -98,10 +109,18 @@ board's second USB-C is the P4's USB-OTG controller: it enumerates nothing
 unless firmware implements a USB device, so it's no use for flashing):
 
 ```bash
-cargo run --release
+WIFI_CONFIG='SSID:PASSWORD' cargo run --release
 ```
 
-Optionally bake in a stable identity: `IROH_SECRET=<64 hex chars> cargo run --release`.
+`WIFI_CONFIG` is read at build time and embedded into the firmware. Optionally
+bake in a stable identity: `IROH_SECRET=<64 hex chars>`.
+
+On startup the device prints two tickets. Pass either to the
+[`client`](../client/README.md):
+
+- **Short ticket** — bare endpoint ID, resolved via pkarr/relay. Works from any
+  network. Use this one.
+- **Long ticket** — includes the WiFi IP, for a same-LAN direct fast path.
 
 **Post-flash quirk:** after flashing, the chip may come back up with
 `boot:0x4 (DOWNLOAD…)` / `waiting for download` instead of booting the app —
@@ -113,33 +132,19 @@ soft reset (seen with espflash 4.4.0). Press **Ctrl+R** in the espflash monitor
 If the port refuses to open (`Failed to open serial port`), check for a stale
 espflash still holding it: `lsof /dev/cu.usbmodem*`.
 
-## Getting it on a real network
-
-The self-test proves iroh runs; making the board *dialable* needs a netif from
-somewhere. The P4's options, none wired up here (yet):
-
-- **Ethernet** — the P4 has an internal 10/100 EMAC; boards like the
-  ESP32-P4-Function-EV-Board pair it with an IP101 PHY. This is the natural next
-  step: `EspEth` + the existing code path would give LAN-direct echo, and with
-  the PSRAM headroom probably the full relay + pkarr build.
-- **ESP-Hosted** — many P4 boards (Function-EV, Waveshare P4-NANO, …) carry an
-  ESP32-C6 companion chip that provides WiFi over SDIO via the ESP-Hosted
-  protocol. Supported in ESP-IDF; not yet surfaced nicely in `esp-idf-svc`.
-- **USB** — USB-ECM/RNDIS to a host. Exotic, but the P4 has USB-OTG HS.
-
-Once any of those provides a netif, the endpoint (already running, already
-accepting) becomes reachable — add the netif's IP to a long ticket, or flip
-`RelayMode` back on for internet-wide reachability.
+**Benign log noise:** two `E (…) system_api: N mac type is incorrect (not
+found)` lines at startup are expected — the netif layer first looks for WiFi
+MAC addresses in the P4's eFuse (there are none; no radio), then ESP-Hosted
+supplies the C6's real MAC over SDIO.
 
 ## Memory tuning
 
 Same instrumentation as the siblings: per-connection heap probes, and a
-main-task **stack high-water** line after each connection — during the
-self-test that covers both the client and server side of the handshake, so it's
-a realistic worst case. See the
+**stack high-water** line after each connection — now for the tokio thread's
+PSRAM stack (`[stack] tokio thread high-water: … bytes free of 98304`). See the
 [C61 README](../server-esp32-c61-psram/README.md#memory-tuning) for how to read
-it. The P4 is the least memory-constrained chip in this repo; if anything, the
-numbers tell you how much slack you have.
+it. With 32 MB of PSRAM the P4 is the least memory-constrained target in this
+repo; the numbers mostly tell you how much slack you have.
 
 ### Profiling the heap
 

@@ -75,6 +75,17 @@ n0-future = "0.3"
 [build-dependencies]
 embuild = "0.33"
 
+# WiFi on a chip with no radio: the board's ESP32-C6-MINI-1 companion (SDIO)
+# runs the ESP-Hosted slave firmware; these two managed components give the P4
+# the standard esp_wifi_* API, proxied to the C6. esp-idf-hal/svc detect the
+# component (cfg esp_idf_comp_espressif__esp_wifi_remote_enabled) and light up
+# the normal Modem peripheral + EspWifi wrapper on the P4.
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/esp_wifi_remote", version = "*" }
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/esp_hosted", version = "*" }
+
 [patch.crates-io]
 # Unify iroh-base between the git iroh (refactor-hickory) and crates.io iroh-tickets.
 iroh-base = { git = "https://github.com/n0-computer/iroh", branch = "refactor-hickory" }

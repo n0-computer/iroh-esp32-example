@@ -20,12 +20,20 @@ CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
 CONFIG_ESP32P4_SELECTS_REV_LESS_V3=y
 CONFIG_ESP32P4_REV_MIN_100=y
 
-# Tokio current_thread runtime runs all async tasks on this single stack, so it
-# has to hold the deepest path. Here that's the loopback self-test: a client
-# endpoint's QUIC/TLS handshake nested against the server accept path on the
-# SAME stack. The C61 needed 96 KB for its relay path; keep the same number —
-# the P4 has 768 KB of internal SRAM, so unlike the C61 this is not scarce.
-CONFIG_ESP_MAIN_TASK_STACK_SIZE=98304
+# Main task: just init + WiFi connect + spawning the tokio thread, so a modest
+# stack suffices. The deep path (tokio + the whole iroh stack) runs on a
+# separate thread whose 96 KB stack lives in PSRAM (see main.rs). It has to:
+# of the P4's 768 KB internal SRAM, the rev<3 layout + 128 KB L2 cache + ROM/
+# bootloader reservations leave the app ~183 KB "low" SRAM, and with the
+# esp_hosted + esp_wifi_remote components linked in, static data eats ~100 KB
+# of it — a 96 KB internal main-task stack no longer fits (boot assert in
+# esp_startup_start_app: xTaskCreatePinnedToCore returns failure).
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=24576
+
+# Keep ESP-Hosted's buffer mempool in PSRAM too — with 32 MB of it, internal
+# SRAM is the scarce resource here, not throughput.
+CONFIG_ESP_HOSTED_USE_MEMPOOL=y
+CONFIG_ESP_HOSTED_MEMPOOL_PREFER_SPIRAM=y
 
 # We use rustls, not mbedtls - disable to save RAM and flash
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
